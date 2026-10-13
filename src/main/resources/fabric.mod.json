@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "donutsmpclient",
+  "version": "${version}",
+  "name": "DonutSMP Client",
+  "description": "A blue-themed utility client for Minecraft 1.21.11. No cheat features.",
+  "authors": ["DonutSMP Client"],
+  "environment": "client",
+  "entrypoints": {
+    "client": ["online.donutsmp.client.DonutSMPClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
