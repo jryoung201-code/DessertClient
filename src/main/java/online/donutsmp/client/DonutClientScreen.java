@@ -25,7 +25,6 @@ public final class DonutClientScreen extends Screen {
         int left = Math.max(16, (width - 760) / 2);
         int top = Math.max(16, (height - 470) / 2);
         int mainX = left + 190;
-        int mainW = 550;
 
         addDrawableChild(ButtonWidget.builder(
                 Text.literal(scannerEnabled ? "Scanner: ON" : "Scanner: OFF"),
@@ -67,13 +66,14 @@ public final class DonutClientScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        renderBackground(context, mouseX, mouseY, delta);
+        // Draw our own background instead of calling renderBackground(), which
+        // requests Minecraft's one-per-frame blur and can crash with other clients.
+        context.fill(0, 0, width, height, 0x99030A13);
         int left = Math.max(16, (width - 760) / 2);
         int top = Math.max(16, (height - 470) / 2);
         int mainX = left + 190;
         int mainW = 550;
 
-        context.fill(0, 0, width, height, 0x99030A13);
         context.fill(left, top, left + 760, top + 470, NAVY);
         context.fill(left, top, left + 760, top + 48, 0xFF0C1B2D);
         context.fill(left, top + 48, left + 180, top + 470, 0xFF101D2D);
