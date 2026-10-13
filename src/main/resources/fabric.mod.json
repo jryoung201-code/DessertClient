@@ -3,7 +3,7 @@
   "id": "donutsmpclient",
   "version": "${version}",
   "name": "Dessert Client",
-  "description": "A candy-themed DonutSMP utility client for Minecraft 1.21.11.",
+  "description": "A dessert-themed DonutSMP utility client for Minecraft 1.21.11.",
   "authors": ["Dessert Client"],
   "environment": "client",
   "entrypoints": {
