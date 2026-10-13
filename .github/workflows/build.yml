@@ -28,13 +28,17 @@ jobs:
         with:
           gradle-version: '9.2.0'
 
+      - name: Read mod version
+        id: mod_version
+        run: echo "version=$(grep '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
       - name: Build mod
         run: gradle --no-daemon clean build
 
       - name: Upload mod JAR
         uses: actions/upload-artifact@v4
         with:
-          name: DonutSMP-Client-1.21.11
+          name: DonutSMP-Client-${{ steps.mod_version.outputs.version }}-MC1.21.11
           path: build/libs/*.jar
           if-no-files-found: error
           retention-days: 14
@@ -42,11 +46,11 @@ jobs:
       - name: Publish JAR to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: DonutSMP Client Build #${{ github.run_number }}
+          tag_name: v${{ steps.mod_version.outputs.version }}
+          name: DonutSMP Client v${{ steps.mod_version.outputs.version }}
           body: |
-            Automated build of DonutSMP Client for Minecraft Java 1.21.11.
-            Requires Fabric Loader and Fabric API.
+            DonutSMP Client version ${{ steps.mod_version.outputs.version }} for Minecraft Java 1.21.11.
+            Requires Fabric Loader and Fabric API. Mod Menu integration is optional.
           files: build/libs/*.jar
           fail_on_unmatched_files: true
           make_latest: true
