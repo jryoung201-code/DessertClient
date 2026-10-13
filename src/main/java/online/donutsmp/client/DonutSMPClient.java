@@ -10,6 +10,11 @@ import org.lwjgl.glfw.GLFW;
 public final class DonutSMPClient implements ClientModInitializer {
     private static KeyBinding openClientKey;
 
+    /** Display name of the key currently bound to "open Dessert Client" (e.g. "Right Shift"). */
+    public static String openKeyLabel() {
+        return openClientKey == null ? "Right Shift" : openClientKey.getBoundKeyLocalizedText().getString();
+    }
+
     @Override
     public void onInitializeClient() {
         openClientKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(

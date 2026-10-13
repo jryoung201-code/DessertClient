@@ -4,8 +4,9 @@
 
 ## Current prototype
 - Press **Right Shift** in-game to open the Dessert Client screen.
-- Pink-themed interface with Dashboard, SUS Chunk Scanner, Money Tracker, Auction House, Waypoints, Player, World, Render, Utilities, and Configs pages.
-- Scanner controls for enabling/disabling the scanner, chunk highlighting, and through-wall highlighting.
+- Pink-themed interface with a sidebar (Dashboard, SUS Chunk Scanner, Money Tracker, Auction House, Waypoints, Player, World, Render, Utilities, Configs), rounded panels, and a donut logo. Only the scanner page has content so far; the others show a "coming soon" card.
+- Scanner page: status pill, scanner status card, suspicion scale, switch-style toggles (scanner, chunk highlighting, through-wall highlighting), and a recent-chunks table. The table row is a labelled sample until scanning exists.
+- Right-hand info box (FPS, ping, server, XYZ, nether/overworld coordinates, facing, biome, speed) and a keybinds box, shown when the window is wide enough. TPS shows `--` because the client cannot measure it. Only "Open GUI" reflects a real keybind; the other keybinds shown are placeholders.
 - Smooth suspicion color scale: red, orange, yellow, and green.
 - No cheat features. The scanner panel is a UI prototype and does not yet perform live chunk analysis.
 
