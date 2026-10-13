@@ -19,7 +19,8 @@ import net.minecraft.util.math.ChunkPos;
  * present in the client chunk cache are inspected.
  */
 public final class SusChunkScanner {
-    private static final int RADIUS_CHUNKS = 4;
+    private static final int FOREGROUND_RADIUS_CHUNKS = 1; // 3x3 priority area
+    private static final int BACKGROUND_RADIUS_CHUNKS = 2; // 5x5 total background area
     private static final int MAX_RESULTS = 40;
     private static final Map<Long, Finding> FINDINGS = new LinkedHashMap<>();
     private static final Set<Long> SCANNED = new HashSet<>();
@@ -82,11 +83,12 @@ public final class SusChunkScanner {
         lastScanAt = System.currentTimeMillis();
 
         ChunkPos center = client.player.getChunkPos();
-        int total = (RADIUS_CHUNKS * 2 + 1) * (RADIUS_CHUNKS * 2 + 1);
+        int total = (BACKGROUND_RADIUS_CHUNKS * 2 + 1) * (BACKGROUND_RADIUS_CHUNKS * 2 + 1);
         scanQueueSize = total;
         // Walk a deterministic spiral-like square, starting near the player.
         boolean processedChunk = false;
-        for (int ring = 0; ring <= RADIUS_CHUNKS; ring++) {
+        // Scan the nearby 3x3 first, then continue through the surrounding 5x5 area.
+        for (int ring = 0; ring <= BACKGROUND_RADIUS_CHUNKS; ring++) {
             for (int dx = -ring; dx <= ring; dx++) {
                 for (int dz = -ring; dz <= ring; dz++) {
                     if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) continue;
