@@ -5,6 +5,8 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
@@ -20,6 +22,7 @@ public final class SusChunkScanner {
     private static final int RADIUS_CHUNKS = 4;
     private static final int MAX_RESULTS = 40;
     private static final Map<Long, Finding> FINDINGS = new LinkedHashMap<>();
+    private static final Set<Long> SCANNED = new HashSet<>();
     private static boolean enabled;
     private static int scannedChunks;
     private static int scanQueueSize;
@@ -33,6 +36,7 @@ public final class SusChunkScanner {
         if (value) {
             scannedChunks = 0;
             scanQueueSize = 0;
+            SCANNED.clear();
             lastScanAt = 0;
         }
     }
@@ -69,6 +73,7 @@ public final class SusChunkScanner {
         if (!currentDimension.equals(dimension)) {
             dimension = currentDimension;
             FINDINGS.clear();
+            SCANNED.clear();
             scannedChunks = 0;
             scanQueueSize = 0;
             lastScanAt = 0;
@@ -89,13 +94,11 @@ public final class SusChunkScanner {
                     Chunk chunk = client.world.getChunkManager().getWorldChunk(cx, cz);
                     if (chunk == null) continue; // never load a chunk to scan it
                     long key = ChunkPos.toLong(cx, cz);
-                    Finding existing = FINDINGS.get(key);
-                    // Avoid rescanning the same loaded chunk repeatedly.
-                    if (existing != null && existing.dimension().equals(currentDimension)
-                            && existing.scannedAtChunkVersion() == chunk.getBlockEntities().hashCode()) {
-                        continue;
-                    }
+                    // Cache completed chunk coordinates for this scan pass; this includes clean chunks.
+                    if (SCANNED.contains(key)) continue;
                     Finding finding = inspect(chunk, currentDimension);
+                    SCANNED.add(key);
+                    if (SCANNED.size() > 512) SCANNED.clear();
                     scannedChunks++;
                     if (finding != null) {
                         FINDINGS.put(key, finding);
