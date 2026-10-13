@@ -94,7 +94,6 @@ public final class SusChunkScanner {
     }
 
     public static int getNotificationThreshold() {
-        loadSettings();
         return notificationThreshold;
     }
 
@@ -108,8 +107,13 @@ public final class SusChunkScanner {
         loadSettings();
         if (!notificationsEnabled || finding.score() < notificationThreshold || !NOTIFIED.add(key)) return;
         if (client.player == null) return;
+
+        // Convert chunk coordinates into real Minecraft block coordinates.
+        // Use the center of the detected chunk to give a useful navigation point.
+        int blockX = (finding.chunkX() << 4) + 8;
+        int blockZ = (finding.chunkZ() << 4) + 8;
         client.player.sendMessage(Text.literal("§dDessert Client §8» §fPossible base clue detected §7(" +
-                finding.score() + "/100) §8• §fChunk " + finding.chunkX() + ", " + finding.chunkZ()), false);
+                finding.score() + "/100) §8• §fX: " + blockX + ", Z: " + blockZ), false);
     }
 
     public static void setEnabled(boolean value) {
