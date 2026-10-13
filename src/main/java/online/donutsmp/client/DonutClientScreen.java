@@ -44,6 +44,7 @@ public final class DonutClientScreen extends Screen {
     private boolean scannerEnabled = SusChunkScanner.isEnabled();
     private boolean highlightChunks = true;
     private boolean showThroughWalls = true;
+    private boolean amethystOnly = false;
     private String activePage = SCANNER;
 
     private int left, top, panelW, panelH, navW, navStep, navItemH, mainX, mainW;
@@ -576,8 +577,8 @@ public final class DonutClientScreen extends Screen {
                     scannerEnabled = !scannerEnabled;
                     SusChunkScanner.setEnabled(scannerEnabled);
                 }
-                else if (index == 1) highlightChunks = !highlightChunks;
-                else showThroughWalls = !showThroughWalls;
+                else if (index == 1) { highlightChunks = !highlightChunks; SusChunkRenderer.setHighlightEnabled(highlightChunks); }
+                else { showThroughWalls = !showThroughWalls; SusChunkRenderer.setThroughWalls(showThroughWalls); }
                 return true;
             }
         }
