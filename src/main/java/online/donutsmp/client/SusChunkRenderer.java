@@ -9,6 +9,7 @@ import net.minecraft.client.render.VertexRendering;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.shape.VoxelShapes;
 
 /**
  * Draws outlines around suspicious chunks using the Minecraft 1.21.11
@@ -42,7 +43,7 @@ public final class SusChunkRenderer {
                 return;
             }
 
-            Vec3d camera = client.gameRenderer.getCamera().getPos();
+            Vec3d camera = client.gameRenderer.getCamera().getCameraPos();
             VertexConsumer lines = consumers.getBuffer(
                     throughWalls ? RenderLayers.linesTranslucent() : RenderLayers.lines());
 
@@ -61,10 +62,12 @@ public final class SusChunkRenderer {
                     int z = finding.chunkZ() << 4;
                     Box box = new Box(x, client.world.getBottomY(), z,
                             x + 16, client.world.getTopYInclusive() + 1, z + 16);
-                    float red = finding.hasAmethyst() ? 0.72f : 1.0f;
-                    float green = finding.hasAmethyst() ? 0.28f : 0.12f;
-                    float blue = finding.hasAmethyst() ? 1.0f : 0.18f;
-                    VertexRendering.drawBox(matrices, lines, box, red, green, blue, 0.85f);
+                    int color = finding.hasAmethyst()
+                            ? 0xFFB847FF
+                            : 0xFFFF1F2E;
+                    VertexRendering.drawOutline(
+                            matrices, lines, VoxelShapes.cuboid(box),
+                            0.0, 0.0, 0.0, color, 2.0f);
                 }
             } finally {
                 matrices.pop();
