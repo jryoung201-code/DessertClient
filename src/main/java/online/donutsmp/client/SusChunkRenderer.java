@@ -60,8 +60,10 @@ public final class SusChunkRenderer {
 
                     int x = finding.chunkX() << 4;
                     int z = finding.chunkZ() << 4;
-                    Box box = new Box(x, client.world.getBottomY(), z,
-                            x + 16, client.world.getTopYInclusive() + 1, z + 16);
+                    // Draw only around the vertical area containing the detected clues.
+                    // Full-world-height boxes can stretch into the sky when viewed from above.
+                    Box box = new Box(x, finding.minY(), z,
+                            x + 16, Math.max(finding.minY() + 1, finding.maxY()), z + 16);
                     int color = finding.hasAmethyst()
                             ? 0xFFB847FF
                             : 0xFFFF1F2E;
