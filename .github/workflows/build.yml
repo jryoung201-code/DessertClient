@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -38,3 +38,15 @@ jobs:
           path: build/libs/*.jar
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish JAR to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: DonutSMP Client Build #${{ github.run_number }}
+          body: |
+            Automated build of DonutSMP Client for Minecraft Java 1.21.11.
+            Requires Fabric Loader and Fabric API.
+          files: build/libs/*.jar
+          fail_on_unmatched_files: true
+          make_latest: true
