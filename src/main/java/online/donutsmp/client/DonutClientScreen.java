@@ -268,10 +268,11 @@ public final class DonutClientScreen extends Screen {
 
     private void drawControls(DrawContext c, int mx, int my) {
         int gap = 10;
-        int w = (mainW - gap * 2) / 3;
+        int w = (mainW - gap * 3) / 4;
         drawToggle(c, mainX, controlsY, w, "◎", "Scanner", "Scanner", scannerEnabled, mx, my);
-        drawToggle(c, mainX + w + gap, controlsY, w, "◆", "Highlight Chunks", "Highlights", highlightChunks, mx, my);
+        drawToggle(c, mainX + w + gap, controlsY, w, "◆", "Highlight Chunks", "Highlight", highlightChunks, mx, my);
         drawToggle(c, mainX + (w + gap) * 2, controlsY, w, "▦", "Through-wall", "Walls", showThroughWalls, mx, my);
+        drawToggle(c, mainX + (w + gap) * 3, controlsY, w, "✦", "Amethyst Only", "Amethyst", amethystOnly, mx, my);
     }
 
     private void drawToggle(DrawContext c, int x, int y, int w, String icon, String label, String shortLabel, boolean on, int mx, int my) {
@@ -569,16 +570,17 @@ public final class DonutClientScreen extends Screen {
 
         if (SCANNER.equals(activePage) && mouseY >= controlsY && mouseY < controlsY + 30 && mouseX >= mainX && mouseX < mainX + mainW) {
             int gap = 10;
-            int w = (mainW - gap * 2) / 3;
+            int w = (mainW - gap * 3) / 4;
             int index = (int) ((mouseX - mainX) / (double) (w + gap));
             double within = (mouseX - mainX) - index * (w + gap);
-            if (index <= 2 && within < w) {
+            if (index <= 3 && within < w) {
                 if (index == 0) {
                     scannerEnabled = !scannerEnabled;
                     SusChunkScanner.setEnabled(scannerEnabled);
                 }
                 else if (index == 1) { highlightChunks = !highlightChunks; SusChunkRenderer.setHighlightEnabled(highlightChunks); }
-                else { showThroughWalls = !showThroughWalls; SusChunkRenderer.setThroughWalls(showThroughWalls); }
+                else if (index == 2) { showThroughWalls = !showThroughWalls; SusChunkRenderer.setThroughWalls(showThroughWalls); }
+                else { amethystOnly = !amethystOnly; SusChunkRenderer.AmethystFilter.setEnabled(amethystOnly); }
                 return true;
             }
         }
