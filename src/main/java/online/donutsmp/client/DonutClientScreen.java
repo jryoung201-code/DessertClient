@@ -2,130 +2,170 @@ package online.donutsmp.client;
 
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
+import org.lwjgl.glfw.GLFW;
 
 public final class DonutClientScreen extends Screen {
-    private static final int NAVY = 0xF20B1525;
-    private static final int PANEL = 0xF2142235;
-    private static final int BLUE = 0xFF168BFF;
-    private static final int MUTED = 0xFF9EB7D4;
+    private static final int BACKDROP = 0xE80B0610;
+    private static final int WINDOW = 0xF51A101A;
+    private static final int PANEL = 0xF52A1A25;
+    private static final int PANEL_ALT = 0xF02F202C;
+    private static final int PINK = 0xFFFF6FAE;
+    private static final int PINK_LIGHT = 0xFFFFA8CC;
+    private static final int TEXT = 0xFFFFF3F8;
+    private static final int MUTED = 0xFFD8B9C9;
+    private static final int CYAN = 0xFF54DFFF;
     private boolean scannerEnabled = true;
     private boolean highlightChunks = true;
     private boolean showThroughWalls = false;
     private String activePage = "SUS Chunk Scanner";
+    private int left, top, panelW, panelH, sideW, mainX, mainW;
 
     public DonutClientScreen() {
-        super(Text.literal("DonutSMP Client"));
+        super(Text.literal("Dessert Client"));
     }
 
     @Override
     protected void init() {
-        clearChildren();
-        int left = Math.max(16, (width - 760) / 2);
-        int top = Math.max(16, (height - 470) / 2);
-        int mainX = left + 190;
-
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal(scannerEnabled ? "Scanner: ON" : "Scanner: OFF"),
-                button -> { scannerEnabled = !scannerEnabled; rebuild(); })
-                .dimensions(mainX + 18, top + 244, 160, 26).build());
-
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal(highlightChunks ? "Highlight Chunks: ON" : "Highlight Chunks: OFF"),
-                button -> { highlightChunks = !highlightChunks; rebuild(); })
-                .dimensions(mainX + 190, top + 244, 170, 26).build());
-
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal(showThroughWalls ? "Through-wall: ON" : "Through-wall: OFF"),
-                button -> { showThroughWalls = !showThroughWalls; rebuild(); })
-                .dimensions(mainX + 372, top + 244, 150, 26).build());
-
-        addDrawableChild(ButtonWidget.builder(Text.literal("Dashboard"), b -> setPage("Dashboard"))
-                .dimensions(left + 12, top + 78, 158, 27).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("SUS Chunk Scanner"), b -> setPage("SUS Chunk Scanner"))
-                .dimensions(left + 12, top + 112, 158, 27).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Money Tracker"), b -> setPage("Money Tracker"))
-                .dimensions(left + 12, top + 146, 158, 27).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Auction House"), b -> setPage("Auction House"))
-                .dimensions(left + 12, top + 180, 158, 27).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Waypoints"), b -> setPage("Waypoints"))
-                .dimensions(left + 12, top + 214, 158, 27).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Close"), b -> close())
-                .dimensions(left + 12, top + 410, 158, 27).build());
+        panelW = Math.min(1120, width - 24);
+        panelH = Math.min(560, height - 24);
+        left = (width - panelW) / 2;
+        top = (height - panelH) / 2;
+        sideW = Math.min(205, Math.max(150, panelW / 5));
+        mainX = left + sideW + 16;
+        mainW = panelW - sideW - 32;
     }
 
-    private void setPage(String page) {
-        activePage = page;
-        rebuild();
-    }
-
-    private void rebuild() {
-        clearAndInit();
-    }
-
-    // Screen.render calls this hook before drawing widgets. Keep it empty so
-    // Minecraft/Dawn cannot request the vanilla blur a second time this frame.
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // The custom background is drawn in render() below.
+        // Avoid vanilla blur; draw the complete custom background ourselves.
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, width, height, 0xFF030A13);
-        int left = Math.max(16, (width - 760) / 2);
-        int top = Math.max(16, (height - 470) / 2);
-        int mainX = left + 190;
-        int mainW = 550;
+        context.fill(0, 0, width, height, BACKDROP);
+        context.fill(left, top, left + panelW, top + panelH, WINDOW);
+        context.fill(left, top, left + panelW, top + 3, PINK);
+        context.fill(left, top, left + sideW, top + panelH, 0xF0180D16);
+        context.fill(left, top + 52, left + panelW, top + 53, 0xFF603044);
 
-        context.fill(left, top, left + 760, top + 470, NAVY);
-        context.fill(left, top, left + 760, top + 48, 0xFF0C1B2D);
-        context.fill(left, top + 48, left + 180, top + 470, 0xFF101D2D);
-        context.fill(mainX, top + 58, mainX + mainW, top + 232, PANEL);
-        context.fill(mainX, top + 280, mainX + mainW, top + 448, PANEL);
-        context.fill(left, top, left + 760, top + 2, BLUE);
-        context.drawText(textRenderer, "DONUTSMP CLIENT", left + 18, top + 13, 0xFF39A8FF, false);
-        context.drawText(textRenderer, "Minecraft 1.21.11  |  Fabric Utility Mod", left + 18, top + 31, MUTED, false);
-        context.drawText(textRenderer, activePage, mainX + 18, top + 68, 0xFFF2F7FF, false);
-        context.drawText(textRenderer, "Underground clues • chunk coordinates • local scan results", mainX + 18, top + 87, MUTED, false);
+        drawText(context, "🍩 DESSERT CLIENT", left + 16, top + 15, PINK_LIGHT);
+        drawText(context, "A sweet way to play DonutSMP", left + 16, top + 34, MUTED);
+        drawText(context, "×", left + panelW - 24, top + 17, TEXT);
 
-        context.drawText(textRenderer, "SCANNER STATUS", mainX + 18, top + 112, 0xFF62B9FF, false);
-        context.drawText(textRenderer, scannerEnabled ? "Ready to inspect loaded chunks" : "Scanner paused", mainX + 18, top + 130, 0xFFF2F7FF, false);
-        context.drawText(textRenderer, "Suspicion scale", mainX + 18, top + 158, MUTED, false);
-        drawGradient(context, mainX + 18, top + 176, mainX + 510, top + 188);
-        context.drawText(textRenderer, "1% RED", mainX + 18, top + 194, 0xFFFF6666, false);
-        context.drawText(textRenderer, "50% ORANGE", mainX + 140, top + 194, 0xFFFF9A42, false);
-        context.drawText(textRenderer, "75% YELLOW", mainX + 290, top + 194, 0xFFFFE052, false);
-        context.drawText(textRenderer, "100% GREEN", mainX + 420, top + 194, 0xFF4FE477, false);
+        String[] pages = {"Dashboard", "SUS Chunk Scanner", "Money Tracker", "Auction House", "Waypoints", "Player", "World", "Render", "Utilities", "Configs"};
+        String[] icons = {"⌂", "◎", "▤", "⚒", "◆", "♟", "⬡", "◉", "⚙", "▣"};
+        int navY = top + 70;
+        for (int i = 0; i < pages.length; i++) {
+            int y = navY + i * 35;
+            if (y + 29 > top + panelH - 12) break;
+            boolean selected = pages[i].equals(activePage);
+            drawButton(context, left + 10, y, sideW - 20, 29, selected, mouseX, mouseY);
+            drawText(context, icons[i] + "  " + pages[i], left + 20, y + 9, selected ? TEXT : MUTED);
+        }
 
-        context.drawText(textRenderer, "RECENT SUS CHUNKS", mainX + 18, top + 292, 0xFFF2F7FF, false);
-        context.drawText(textRenderer, "Chunk coordinates", mainX + 18, top + 316, MUTED, false);
-        context.drawText(textRenderer, "Suspicion", mainX + 230, top + 316, MUTED, false);
-        context.drawText(textRenderer, "Detected clue", mainX + 340, top + 316, MUTED, false);
-        context.drawText(textRenderer, "No live scan data yet — this is the prototype UI.", mainX + 18, top + 344, 0xFFF2F7FF, false);
-        context.drawText(textRenderer, "Scanner analysis only uses blocks available to the client.", mainX + 18, top + 365, MUTED, false);
+        drawText(context, activePage, mainX + 12, top + 69, TEXT);
+        drawText(context, "Underground clues  •  chunk coordinates  •  local scan results", mainX + 12, top + 88, MUTED);
+
+        int gap = 12;
+        int statusY = top + 112;
+        int statusH = Math.min(224, Math.max(185, panelH / 2 - 35));
+        context.fill(mainX, statusY, mainX + mainW, statusY + statusH, PANEL);
+        context.fill(mainX, statusY, mainX + mainW, statusY + 2, 0xFF91445F);
+        drawText(context, "SCANNER STATUS", mainX + 14, statusY + 12, CYAN);
+        drawText(context, scannerEnabled ? "● Ready to inspect loaded chunks" : "● Scanner paused", mainX + 14, statusY + 33, scannerEnabled ? 0xFF73FF9D : PINK_LIGHT);
+        drawText(context, "Scan nearby loaded chunks for unusual underground clues.", mainX + 14, statusY + 51, MUTED);
+        drawText(context, "Suspicion scale", mainX + 14, statusY + 78, MUTED);
+
+        int gx = mainX + 14, gy = statusY + 98, gw = mainW - 28;
+        drawGradient(context, gx, gy, gx + gw, gy + 13);
+        drawText(context, "1% RED", gx, gy + 20, 0xFFFF515D);
+        drawText(context, "50% ORANGE", gx + gw / 3 - 25, gy + 20, 0xFFFFAD4B);
+        drawText(context, "75% YELLOW", gx + (gw * 2) / 3 - 35, gy + 20, 0xFFFFE86B);
+        drawText(context, "100% GREEN", gx + gw - 80, gy + 20, 0xFF64F58B);
+
+        int controlsY = statusY + statusH + 12;
+        int buttonGap = 10;
+        int buttonW = (mainW - buttonGap * 2) / 3;
+        drawButton(context, mainX, controlsY, buttonW, 34, scannerEnabled, mouseX, mouseY);
+        drawText(context, "◎ Scanner: " + (scannerEnabled ? "ON" : "OFF"), mainX + 10, controlsY + 12, TEXT);
+        drawButton(context, mainX + buttonW + buttonGap, controlsY, buttonW, 34, highlightChunks, mouseX, mouseY);
+        drawText(context, "◆ Highlights: " + (highlightChunks ? "ON" : "OFF"), mainX + buttonW + buttonGap + 10, controlsY + 12, TEXT);
+        drawButton(context, mainX + (buttonW + buttonGap) * 2, controlsY, buttonW, 34, showThroughWalls, mouseX, mouseY);
+        drawText(context, "◈ Through-wall: " + (showThroughWalls ? "ON" : "OFF"), mainX + (buttonW + buttonGap) * 2 + 10, controlsY + 12, TEXT);
+
+        int recentY = controlsY + 46;
+        int recentH = top + panelH - 14 - recentY;
+        if (recentH > 45) {
+            context.fill(mainX, recentY, mainX + mainW, recentY + recentH, PANEL);
+            drawText(context, "RECENT SUS CHUNKS", mainX + 14, recentY + 12, CYAN);
+            drawText(context, "Chunk coordinates", mainX + 14, recentY + 34, MUTED);
+            drawText(context, "Suspicion", mainX + mainW / 2, recentY + 34, MUTED);
+            drawText(context, "Detected clue", mainX + (mainW * 2) / 3, recentY + 34, MUTED);
+            if (recentH > 70) drawText(context, "No live scan results yet — scanner engine is still being built.", mainX + 14, recentY + 56, TEXT);
+        }
         super.render(context, mouseX, mouseY, delta);
     }
 
-    private static void drawGradient(DrawContext context, int x1, int y1, int x2, int y2) {
-        int width = x2 - x1;
-        int[] colors = {0xFFEF4444, 0xFFF97316, 0xFFFACC15, 0xFF22C55E};
-        for (int x = 0; x < width; x++) {
-            float p = x / (float) (width - 1);
-            float scaled = p * (colors.length - 1);
-            int index = Math.min(colors.length - 2, (int) scaled);
-            float t = scaled - index;
-            int color = blend(colors[index], colors[index + 1], t);
-            context.fill(x1 + x, y1, x1 + x + 1, y2, color);
+    private void drawButton(DrawContext c, int x, int y, int w, int h, boolean active, int mx, int my) {
+        boolean hover = mx >= x && mx < x + w && my >= y && my < y + h;
+        c.fill(x, y, x + w, y + h, active || hover ? 0xFFB83268 : PANEL_ALT);
+        c.fill(x, y, x + w, y + 1, active || hover ? PINK : 0xFF694052);
+        c.fill(x, y + h - 1, x + w, y + h, active || hover ? PINK : 0xFF694052);
+    }
+
+    private void drawText(DrawContext c, String s, int x, int y, int color) {
+        c.drawText(textRenderer, s, x, y, color, false);
+    }
+
+    private static void drawGradient(DrawContext c, int x1, int y1, int x2, int y2) {
+        int[] colors = {0xFFFF1744, 0xFFFF842D, 0xFFFFE348, 0xFF37F477};
+        int w = Math.max(1, x2 - x1);
+        for (int x = 0; x < w; x++) {
+            float p = x / (float) Math.max(1, w - 1);
+            float scaled = p * 3;
+            int i = Math.min(2, (int) scaled);
+            c.fill(x1 + x, y1, x1 + x + 1, y2, blend(colors[i], colors[i + 1], scaled - i));
         }
     }
 
     private static int blend(int a, int b, float t) {
-        int r = (int) (((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * t);
-        int g = (int) (((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * t);
-        int bl = (int) ((a & 255) + ((b & 255) - (a & 255)) * t);
+        int r = (int) (((a >> 16) & 255) * (1 - t) + ((b >> 16) & 255) * t);
+        int g = (int) (((a >> 8) & 255) * (1 - t) + ((b >> 8) & 255) * t);
+        int bl = (int) ((a & 255) * (1 - t) + (b & 255) * t);
         return 0xFF000000 | (r << 16) | (g << 8) | bl;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
+        if (mouseX >= left + panelW - 34 && mouseY >= top && mouseY < top + 50) {
+            close();
+            return true;
+        }
+        String[] pages = {"Dashboard", "SUS Chunk Scanner", "Money Tracker", "Auction House", "Waypoints", "Player", "World", "Render", "Utilities", "Configs"};
+        int navY = top + 70;
+        for (int i = 0; i < pages.length; i++) {
+            int y = navY + i * 35;
+            if (y + 29 > top + panelH - 12) break;
+            if (mouseX >= left + 10 && mouseX < left + sideW - 10 && mouseY >= y && mouseY < y + 29) {
+                activePage = pages[i];
+                return true;
+            }
+        }
+        int statusY = top + 112;
+        int statusH = Math.min(224, Math.max(185, panelH / 2 - 35));
+        int controlsY = statusY + statusH + 12;
+        int buttonGap = 10;
+        int buttonW = (mainW - buttonGap * 2) / 3;
+        if (mouseY >= controlsY && mouseY < controlsY + 34 && mouseX >= mainX && mouseX < mainX + mainW) {
+            int index = Math.min(2, (int) ((mouseX - mainX) / (double) (buttonW + buttonGap)));
+            if (index == 0) scannerEnabled = !scannerEnabled;
+            else if (index == 1) highlightChunks = !highlightChunks;
+            else showThroughWalls = !showThroughWalls;
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
