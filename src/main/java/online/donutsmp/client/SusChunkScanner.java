@@ -27,7 +27,10 @@ public final class SusChunkScanner {
     private static boolean enabled;
     private static int scannedChunks;
     private static int scanQueueSize;
-    private static String dimension = "";\n    private static int centerChunkX = Integer.MIN_VALUE;\n    private static int centerChunkZ = Integer.MIN_VALUE;\n    private static long lastScanAt;
+    private static String dimension = "";
+    private static int centerChunkX = Integer.MIN_VALUE;
+    private static int centerChunkZ = Integer.MIN_VALUE;
+    private static long lastScanAt;
 
     private SusChunkScanner() {}
 
