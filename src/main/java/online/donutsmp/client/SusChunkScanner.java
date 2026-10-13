@@ -7,6 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.io.IOException;
+import java.util.Properties;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.text.Text;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
@@ -24,6 +31,11 @@ public final class SusChunkScanner {
     private static final int MAX_RESULTS = 40;
     private static final Map<Long, Finding> FINDINGS = new LinkedHashMap<>();
     private static final Set<Long> SCANNED = new HashSet<>();
+    private static final Set<Long> NOTIFIED = new HashSet<>();
+    private static final Path SETTINGS_FILE = FabricLoader.getInstance().getConfigDir().resolve("dessert-client.properties");
+    private static boolean settingsLoaded;
+    private static boolean notificationsEnabled = true;
+    private static int notificationThreshold = 60;
     private static boolean enabled;
     private static int scannedChunks;
     private static int scanQueueSize;
@@ -34,12 +46,80 @@ public final class SusChunkScanner {
 
     private SusChunkScanner() {}
 
+    private static void loadSettings() {
+        if (settingsLoaded) return;
+        settingsLoaded = true;
+        Properties properties = new Properties();
+        if (Files.isRegularFile(SETTINGS_FILE)) {
+            try (var reader = Files.newBufferedReader(SETTINGS_FILE)) {
+                properties.load(reader);
+                notificationsEnabled = Boolean.parseBoolean(properties.getProperty("baseNotifications", "true"));
+                notificationThreshold = Math.max(15, Math.min(100,
+                        Integer.parseInt(properties.getProperty("baseNotificationThreshold", "60"))));
+            } catch (IOException | NumberFormatException ignored) {
+                // Keep safe defaults if the config file is missing or malformed.
+            }
+        }
+    }
+
+    private static void saveSettings() {
+        Properties properties = new Properties();
+        properties.setProperty("baseNotifications", Boolean.toString(notificationsEnabled));
+        properties.setProperty("baseNotificationThreshold", Integer.toString(notificationThreshold));
+        try {
+            Files.createDirectories(SETTINGS_FILE.getParent());
+            Path temp = SETTINGS_FILE.resolveSibling(SETTINGS_FILE.getFileName() + ".tmp");
+            try (var writer = Files.newBufferedWriter(temp)) {
+                properties.store(writer, "Dessert Client settings");
+            }
+            try {
+                Files.move(temp, SETTINGS_FILE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException ignored) {
+                Files.move(temp, SETTINGS_FILE, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException ignored) {
+            // Settings remain active for this session even if saving fails.
+        }
+    }
+
+    public static boolean areNotificationsEnabled() {
+        loadSettings();
+        return notificationsEnabled;
+    }
+
+    public static void setNotificationsEnabled(boolean value) {
+        loadSettings();
+        notificationsEnabled = value;
+        saveSettings();
+    }
+
+    public static int getNotificationThreshold() {
+        loadSettings();
+        return notificationThreshold;
+    }
+
+    public static void setNotificationThreshold(int value) {
+        loadSettings();
+        notificationThreshold = Math.max(15, Math.min(100, value));
+        saveSettings();
+    }
+
+    private static void notifyIfAboveThreshold(MinecraftClient client, Finding finding, long key) {
+        loadSettings();
+        if (!notificationsEnabled || finding.score() < notificationThreshold || !NOTIFIED.add(key)) return;
+        if (client.player == null) return;
+        client.player.sendMessage(Text.literal("§dDessert Client §8» §fPossible base clue detected §7(" +
+                finding.score() + "/100) §8• §fChunk " + finding.chunkX() + ", " + finding.chunkZ()), false);
+    }
+
     public static void setEnabled(boolean value) {
+        loadSettings();
         enabled = value;
         if (value) {
             scannedChunks = 0;
             scanQueueSize = 0;
             SCANNED.clear();
+            NOTIFIED.clear();
             lastScanAt = 0;
         }
     }
@@ -77,6 +157,7 @@ public final class SusChunkScanner {
             dimension = currentDimension;
             FINDINGS.clear();
             SCANNED.clear();
+            NOTIFIED.clear();
             scannedChunks = 0;
             scanQueueSize = 0;
             lastScanAt = 0;
@@ -92,6 +173,7 @@ public final class SusChunkScanner {
             centerChunkZ = center.z;
             SCANNED.clear();
             FINDINGS.clear();
+            NOTIFIED.clear();
             scannedChunks = 0;
             scanQueueSize = (BACKGROUND_RADIUS_CHUNKS * 2 + 1) * (BACKGROUND_RADIUS_CHUNKS * 2 + 1);
         }
@@ -119,6 +201,7 @@ public final class SusChunkScanner {
                     scannedChunks++;
                     if (finding != null) {
                         FINDINGS.put(key, finding);
+                        notifyIfAboveThreshold(client, finding, key);
                         while (FINDINGS.size() > MAX_RESULTS) {
                             Long weakest = FINDINGS.entrySet().stream()
                                     .min(Comparator.comparingInt(e -> e.getValue().score()))
