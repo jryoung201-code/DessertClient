@@ -35,6 +35,7 @@ public final class SusChunkScanner {
     private static final Path SETTINGS_FILE = FabricLoader.getInstance().getConfigDir().resolve("dessert-client.properties");
     private static boolean settingsLoaded;
     private static boolean notificationsEnabled = true;
+    private static boolean amethystHighlightEnabled = true;
     private static int notificationThreshold = 60;
     private static boolean enabled;
     private static int scannedChunks;
@@ -66,6 +67,7 @@ public final class SusChunkScanner {
         Properties properties = new Properties();
         properties.setProperty("baseNotifications", Boolean.toString(notificationsEnabled));
         properties.setProperty("baseNotificationThreshold", Integer.toString(notificationThreshold));
+        properties.setProperty("amethystHighlight", Boolean.toString(amethystHighlightEnabled));
         try {
             Files.createDirectories(SETTINGS_FILE.getParent());
             Path temp = SETTINGS_FILE.resolveSibling(SETTINGS_FILE.getFileName() + ".tmp");
@@ -82,7 +84,7 @@ public final class SusChunkScanner {
         }
     }
 
-    public static boolean areNotificationsEnabled() {
+    public static boolean isAmethystHighlightEnabled() {\n        loadSettings();\n        return amethystHighlightEnabled;\n    }\n\n    public static void setAmethystHighlightEnabled(boolean value) {\n        loadSettings();\n        amethystHighlightEnabled = value;\n        saveSettings();\n    }\n\n    public static boolean areNotificationsEnabled() {
         loadSettings();
         return notificationsEnabled;
     }
