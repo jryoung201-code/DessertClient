@@ -95,6 +95,8 @@ public final class DonutClientScreen extends Screen {
             drawStatus(c);
             drawControls(c, mouseX, mouseY);
             drawRecent(c);
+        } else if ("Configs".equals(activePage)) {
+            drawSettings(c, mouseX, mouseY);
         } else {
             drawPlaceholder(c);
         }
@@ -200,6 +202,33 @@ public final class DonutClientScreen extends Screen {
             disc(c, px + 14, py + ph / 2, 4, scannerEnabled ? GREEN : 0xFF8A7480);
             drawText(c, scannerEnabled ? "Ready to scan" : "Scanner paused", px + 26, py + 8, TEXT);
         }
+    }
+
+    private void drawSettings(DrawContext c, int mx, int my) {
+        int h = top + panelH - 14 - statusY;
+        if (h < 100) return;
+        roundBox(c, mainX, statusY, mainW, h, 6, PANEL, BORDER_DIM);
+        drawBold(c, "SCANNER NOTIFICATIONS", mainX + 14, statusY + 14, BLUE);
+        drawText(c, "Notify when a scanned chunk reaches your base suspicion threshold.", mainX + 14, statusY + 34, MUTED);
+
+        int rowX = mainX + 14, rowW = mainW - 28;
+        int notifyY = statusY + 58;
+        boolean enabled = SusChunkScanner.areNotificationsEnabled();
+        boolean hoverNotify = mx >= rowX && mx < rowX + rowW && my >= notifyY && my < notifyY + 38;
+        roundBox(c, rowX, notifyY, rowW, 38, 5, hoverNotify ? 0xFF321626 : INNER, enabled ? PINK_HOT : BORDER_DIM);
+        drawText(c, "Base notifications", rowX + 12, notifyY + 14, TEXT);
+        drawRight(c, enabled ? "ON" : "OFF", rowX + rowW - 14, notifyY + 14, enabled ? GREEN : MUTED);
+
+        int thresholdY = notifyY + 48;
+        drawText(c, "Suspicion threshold", rowX + 2, thresholdY + 10, TEXT);
+        drawText(c, "Scores at or above this value trigger a notification.", rowX + 2, thresholdY + 27, MUTED);
+        int valueW = 140, valueH = 30, valueX = rowX + rowW - valueW;
+        boolean hoverValue = mx >= valueX && mx < valueX + valueW && my >= thresholdY && my < thresholdY + valueH;
+        roundBox(c, valueX, thresholdY, valueW, valueH, 5, hoverValue ? 0xFF6E1F45 : 0xFF3A1228, PINK_HOT);
+        drawCentered(c, SusChunkScanner.getNotificationThreshold() + "/100  ‹  ›", valueX + valueW / 2, thresholdY + 11, TEXT);
+
+        drawText(c, "Click the threshold to cycle: 15 → 30 → 45 → 60 → 75 → 90 → 100.", rowX + 2, thresholdY + 44, PINK_LIGHT);
+        drawText(c, "Saved automatically to config/dessert-client.properties.", rowX + 2, thresholdY + 61, MUTED);
     }
 
     private void drawPlaceholder(DrawContext c) {
@@ -511,6 +540,28 @@ public final class DonutClientScreen extends Screen {
             int iy = navItemY(i);
             if (mouseX >= left + 16 && mouseX < left + 8 + navW - 8 && mouseY >= iy && mouseY < iy + navItemH) {
                 activePage = PAGES[i];
+                return true;
+            }
+        }
+
+        if ("Configs".equals(activePage)) {
+            int rowX = mainX + 14, rowW = mainW - 28;
+            int notifyY = statusY + 58;
+            if (mouseX >= rowX && mouseX < rowX + rowW && mouseY >= notifyY && mouseY < notifyY + 38) {
+                SusChunkScanner.setNotificationsEnabled(!SusChunkScanner.areNotificationsEnabled());
+                return true;
+            }
+            int thresholdY = notifyY + 48;
+            int valueX = rowX + rowW - 140;
+            if (mouseX >= valueX && mouseX < valueX + 140 && mouseY >= thresholdY && mouseY < thresholdY + 30) {
+                int current = SusChunkScanner.getNotificationThreshold();
+                int[] levels = {15, 30, 45, 60, 75, 90, 100};
+                int next = levels[0];
+                for (int i = 0; i < levels.length; i++) {
+                    if (levels[i] == current) { next = levels[(i + 1) % levels.length]; break; }
+                    if (current < levels[i]) { next = levels[i]; break; }
+                }
+                SusChunkScanner.setNotificationThreshold(next);
                 return true;
             }
         }
