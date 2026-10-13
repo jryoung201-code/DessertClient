@@ -19,8 +19,8 @@ import net.minecraft.util.math.ChunkPos;
  * present in the client chunk cache are inspected.
  */
 public final class SusChunkScanner {
-    private static final int FOREGROUND_RADIUS_CHUNKS = 1; // 3x3 priority area
-    private static final int BACKGROUND_RADIUS_CHUNKS = 2; // 5x5 total background area
+    private static final int FOREGROUND_RADIUS_CHUNKS = 1; // 3x3 high-priority area
+    private static final int BACKGROUND_RADIUS_CHUNKS = 2; // 5x5 total area; outer ring is background priority
     private static final int MAX_RESULTS = 40;
     private static final Map<Long, Finding> FINDINGS = new LinkedHashMap<>();
     private static final Set<Long> SCANNED = new HashSet<>();
@@ -83,12 +83,24 @@ public final class SusChunkScanner {
         lastScanAt = System.currentTimeMillis();
 
         ChunkPos center = client.player.getChunkPos();
-        int total = (BACKGROUND_RADIUS_CHUNKS * 2 + 1) * (BACKGROUND_RADIUS_CHUNKS * 2 + 1);
-        scanQueueSize = total;
-        // Walk a deterministic spiral-like square, starting near the player.
+        // A new player-centered scan window gets a fresh pass. Results are scoped
+        // to this window so moving around does not leave stale progress behind.
+        if (center.x != centerChunkX || center.z != centerChunkZ) {
+            centerChunkX = center.x;
+            centerChunkZ = center.z;
+            SCANNED.clear();
+            FINDINGS.clear();
+            scannedChunks = 0;
+            scanQueueSize = (BACKGROUND_RADIUS_CHUNKS * 2 + 1) * (BACKGROUND_RADIUS_CHUNKS * 2 + 1);
+        }
+        // Foreground priority: inspect all loaded chunks in the 3x3 area first.
+        // Background priority: only after the foreground is complete, inspect the
+        // outer ring that expands the overall window to 5x5 chunks.
         boolean processedChunk = false;
-        // Scan the nearby 3x3 first, then continue through the surrounding 5x5 area.
-        for (int ring = 0; ring <= BACKGROUND_RADIUS_CHUNKS; ring++) {
+        for (int priority = 0; priority <= 1; priority++) {
+            int firstRing = priority == 0 ? 0 : FOREGROUND_RADIUS_CHUNKS + 1;
+            int lastRing = priority == 0 ? FOREGROUND_RADIUS_CHUNKS : BACKGROUND_RADIUS_CHUNKS;
+            for (int ring = firstRing; ring <= lastRing; ring++) {
             for (int dx = -ring; dx <= ring; dx++) {
                 for (int dz = -ring; dz <= ring; dz++) {
                     if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) continue;
@@ -117,6 +129,7 @@ public final class SusChunkScanner {
                     }
                     return;
                 }
+            }
             }
         }
         // No new loaded chunks remain in the current radius; begin another pass next tick.
