@@ -41,7 +41,7 @@ public final class DonutClientScreen extends Screen {
     private static final int SIDE_COL_W = 156;
     private static final int SIDE_COL_GAP = 10;
 
-    private boolean scannerEnabled = true;
+    private boolean scannerEnabled = SusChunkScanner.isEnabled();
     private boolean highlightChunks = true;
     private boolean showThroughWalls = true;
     private String activePage = SCANNER;
@@ -219,8 +219,10 @@ public final class DonutClientScreen extends Screen {
         int bx = mainX + 14, by = statusY + 26, bw = mainW - 28;
         roundBox(c, bx, by, bw, 46, 5, INNER, BORDER_FAINT);
         disc(c, bx + 18, by + 23, 5, scannerEnabled ? GREEN : 0xFF8A7480);
-        drawBold(c, scannerEnabled ? "Ready to inspect loaded chunks" : "Scanner paused", bx + 34, by + 9, TEXT);
-        String sub = "Scan nearby chunks for suspicious activity, hidden bases, and underground clues.";
+        drawBold(c, scannerEnabled ? "Scanning loaded chunks" : "Scanner paused", bx + 34, by + 9, TEXT);
+        String sub = scannerEnabled
+                ? "Analyzed " + SusChunkScanner.getScannedChunks() + " chunk(s) • " + SusChunkScanner.getFindingCount() + " suspicious result(s) • client-loaded chunks only"
+                : "Start scanning to inspect client-loaded chunks for unusual block patterns.";
         drawText(c, textRenderer.trimToWidth(sub, bw - 44), bx + 34, by + 25, MUTED);
 
         drawText(c, "Suspicion scale", mainX + 14, statusY + 82, MUTED);
@@ -265,7 +267,7 @@ public final class DonutClientScreen extends Screen {
         if (h < 84) return;
         roundBox(c, mainX, recentY, mainW, h, 6, PANEL, BORDER_DIM);
         drawBold(c, "RECENT SUS CHUNKS", mainX + 14, recentY + 10, BLUE);
-        drawRight(c, "preview — scanner engine not built yet", mainX + mainW - 14, recentY + 10, 0xFF9A7F8D);
+        drawRight(c, SusChunkScanner.getFindingCount() + " result(s) • heuristic score, not probability", mainX + mainW - 14, recentY + 10, 0xFF9A7F8D);
 
         int col1 = mainX + 20;
         int col2 = mainX + (int) (mainW * 0.36);
@@ -278,18 +280,30 @@ public final class DonutClientScreen extends Screen {
         drawRight(c, "Last seen", right, hy, MUTED);
         c.fill(mainX + 10, hy + 13, mainX + mainW - 10, hy + 14, BORDER_FAINT);
 
-        // Sample row so the table layout is visible; real rows will replace this once scanning exists.
-        int ry = hy + 20;
-        roundBox(c, mainX + 10, ry, mainW - 20, 28, 4, ROW, BORDER_FAINT);
-        int iy = ry + 8;
-        c.fill(col1, iy, col1 + 12, iy + 12, 0xFFB5733A);
-        c.fill(col1, iy, col1 + 12, iy + 3, 0xFFE0A15F);
-        c.fill(col1 + 3, iy + 5, col1 + 6, iy + 8, 0xFF8A5528);
-        drawText(c, "(1234, 65, -567)", col1 + 20, ry + 10, TEXT);
-        drawText(c, "87%", col2, ry + 10, ORANGE);
-        bar(c, col2 + 28, ry + 12, 56, 5, 0.87f, ORANGE, YELLOW);
-        drawText(c, "Large cave system", col3, ry + 10, TEXT);
-        drawRight(c, "2m ago", right, ry + 10, MUTED);
+        var findings = SusChunkScanner.getFindings();
+        int rows = Math.min(findings.size(), Math.max(0, (h - 60) / 32));
+        if (rows == 0) {
+            drawText(c, scannerEnabled ? "Scanning loaded chunks... results will appear here." : "No results yet. Enable Scanner to begin.",
+                    mainX + 20, hy + 23, MUTED);
+            return;
+        }
+        for (int i = 0; i < rows; i++) {
+            SusChunkScanner.Finding finding = findings.get(i);
+            int ry = hy + 20 + i * 32;
+            roundBox(c, mainX + 10, ry, mainW - 20, 28, 4, ROW, BORDER_FAINT);
+            int iy = ry + 8;
+            c.fill(col1, iy, col1 + 12, iy + 12, 0xFFB5733A);
+            c.fill(col1, iy, col1 + 12, iy + 3, 0xFFE0A15F);
+            c.fill(col1 + 3, iy + 5, col1 + 6, iy + 8, 0xFF8A5528);
+            String coords = "(" + finding.chunkX() + ", " + finding.chunkZ() + ")";
+            drawText(c, textRenderer.trimToWidth(coords, Math.max(40, col2 - col1 - 26)), col1 + 20, ry + 10, TEXT);
+            int scoreColor = finding.score() >= 70 ? 0xFFFF657C : finding.score() >= 40 ? ORANGE : YELLOW;
+            drawText(c, finding.score() + "/100", col2, ry + 10, scoreColor);
+            bar(c, col2 + 42, ry + 12, 42, 5, finding.score() / 100.0f, scoreColor, YELLOW);
+            drawText(c, textRenderer.trimToWidth(finding.clue(), Math.max(30, right - col3 - 65)), col3, ry + 10, TEXT);
+            long seconds = Math.max(0, (System.currentTimeMillis() - finding.lastSeen()) / 1000);
+            drawRight(c, seconds < 60 ? seconds + "s ago" : (seconds / 60) + "m ago", right, ry + 10, MUTED);
+        }
     }
 
     // ------------------------------------------------------- right-hand HUD
@@ -507,7 +521,10 @@ public final class DonutClientScreen extends Screen {
             int index = (int) ((mouseX - mainX) / (double) (w + gap));
             double within = (mouseX - mainX) - index * (w + gap);
             if (index <= 2 && within < w) {
-                if (index == 0) scannerEnabled = !scannerEnabled;
+                if (index == 0) {
+                    scannerEnabled = !scannerEnabled;
+                    SusChunkScanner.setEnabled(scannerEnabled);
+                }
                 else if (index == 1) highlightChunks = !highlightChunks;
                 else showThroughWalls = !showThroughWalls;
                 return true;
