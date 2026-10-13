@@ -259,7 +259,7 @@ public final class SusChunkScanner {
                         unusualTypes.add("redstone");
                     }
                     if (state.isOf(Blocks.SPAWNER)) { spawners++; unusualTypes.add("spawner"); }
-                    if (state.isOf(Blocks.DEEPSLATE) || state.isOf(Blocks.COBBLED_DEEPSLATE)
+                    if (state.isOf(Blocks.COBBLED_DEEPSLATE)
                             || state.isOf(Blocks.POLISHED_DEEPSLATE) || state.isOf(Blocks.DEEPSLATE_BRICKS)
                             || state.isOf(Blocks.DEEPSLATE_TILES) || state.isOf(Blocks.CHISELED_DEEPSLATE)
                             || state.isOf(Blocks.CRACKED_DEEPSLATE_BRICKS) || state.isOf(Blocks.CRACKED_DEEPSLATE_TILES)) {
