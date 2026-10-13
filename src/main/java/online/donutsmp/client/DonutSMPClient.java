@@ -24,6 +24,8 @@ public final class DonutSMPClient implements ClientModInitializer {
                 KeyBinding.Category.MISC
         ));
 
+        SusChunkRenderer.register();
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             SusChunkScanner.tick(client);
             while (openClientKey.wasPressed()) {
