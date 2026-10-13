@@ -274,9 +274,9 @@ public final class SusChunkScanner {
 
         String clue = String.join(" • ", clues);
         return new Finding(chunk.getPos().x, chunk.getPos().z, score, clue,
-                System.currentTimeMillis(), dimension, 0);
+                System.currentTimeMillis(), dimension, 0, amethyst > 0);
     }
 
     public record Finding(int chunkX, int chunkZ, int score, String clue, long lastSeen,
-                          String dimension, int scannedAtChunkVersion) {}
+                          String dimension, int scannedAtChunkVersion, boolean hasAmethyst) {}
 }
