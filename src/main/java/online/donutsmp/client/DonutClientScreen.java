@@ -1,6 +1,7 @@
 package online.donutsmp.client;
 
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
@@ -137,8 +138,10 @@ public final class DonutClientScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
+    public boolean mouseClicked(Click click, boolean doubleClick) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        if (click.button() != 0) return super.mouseClicked(click, doubleClick);
         if (mouseX >= left + panelW - 34 && mouseY >= top && mouseY < top + 50) {
             close();
             return true;
@@ -165,7 +168,7 @@ public final class DonutClientScreen extends Screen {
             else showThroughWalls = !showThroughWalls;
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubleClick);
     }
 
     @Override
