@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "donutsmpclient",
   "version": "${version}",
-  "name": "DonutSMP Client",
-  "description": "A blue-themed utility client for Minecraft 1.21.11. No cheat features.",
-  "authors": ["DonutSMP Client"],
+  "name": "Dessert Client",
+  "description": "A candy-themed DonutSMP utility client for Minecraft 1.21.11.",
+  "authors": ["Dessert Client"],
   "environment": "client",
   "entrypoints": {
     "client": ["online.donutsmp.client.DonutSMPClient"],
