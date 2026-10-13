@@ -25,6 +25,7 @@ public final class DonutSMPClient implements ClientModInitializer {
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            SusChunkScanner.tick(client);
             while (openClientKey.wasPressed()) {
                 if (client.currentScreen == null) {
                     client.setScreen(new DonutClientScreen());
