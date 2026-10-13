@@ -229,14 +229,6 @@ public final class DonutClientScreen extends Screen {
 
         drawText(c, "Click the threshold to cycle: 15 → 30 → 45 → 60 → 75 → 90 → 100.", rowX + 2, thresholdY + 44, PINK_LIGHT);
         drawText(c, "Saved automatically to config/dessert-client.properties.", rowX + 2, thresholdY + 61, MUTED);
-
-        int amethystY = thresholdY + 84;
-        boolean amethystOn = SusChunkScanner.isAmethystHighlightEnabled();
-        boolean hoverAmethyst = mx >= rowX && mx < rowX + rowW && my >= amethystY && my < amethystY + 38;
-        roundBox(c, rowX, amethystY, rowW, 38, 5, hoverAmethyst ? 0xFF321626 : INNER, amethystOn ? 0xFFB36BFF : BORDER_DIM);
-        drawText(c, "Amethyst highlighting", rowX + 12, amethystY + 8, TEXT);
-        drawText(c, "Purple box appears only when 3+ amethyst crystals/buds are in a chunk.", rowX + 12, amethystY + 23, MUTED);
-        drawRight(c, amethystOn ? "ON" : "OFF", rowX + rowW - 14, amethystY + 14, amethystOn ? GREEN : MUTED);
     }
 
     private void drawPlaceholder(DrawContext c) {
@@ -557,11 +549,6 @@ public final class DonutClientScreen extends Screen {
             int notifyY = statusY + 58;
             if (mouseX >= rowX && mouseX < rowX + rowW && mouseY >= notifyY && mouseY < notifyY + 38) {
                 SusChunkScanner.setNotificationsEnabled(!SusChunkScanner.areNotificationsEnabled());
-                return true;
-            }
-            int amethystY = notifyY + 48 + 84;
-            if (mouseX >= rowX && mouseX < rowX + rowW && mouseY >= amethystY && mouseY < amethystY + 38) {
-                SusChunkScanner.setAmethystHighlightEnabled(!SusChunkScanner.isAmethystHighlightEnabled());
                 return true;
             }
             int thresholdY = notifyY + 48;
