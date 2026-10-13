@@ -26,8 +26,7 @@ import net.minecraft.util.math.ChunkPos;
  * present in the client chunk cache are inspected.
  */
 public final class SusChunkScanner {
-    private static final int FOREGROUND_RADIUS_CHUNKS = 1; // 3x3 high-priority area
-    private static final int BACKGROUND_RADIUS_CHUNKS = 2; // 5x5 total area; outer ring is background priority
+    private static final int FOREGROUND_RADIUS_CHUNKS = 1; // Scan nearby chunks first
     private static final int MAX_RESULTS = 40;
     private static final Map<Long, Finding> FINDINGS = new LinkedHashMap<>();
     private static final Set<Long> SCANNED = new HashSet<>();
@@ -179,15 +178,18 @@ public final class SusChunkScanner {
             FINDINGS.clear();
             NOTIFIED.clear();
             scannedChunks = 0;
-            scanQueueSize = (BACKGROUND_RADIUS_CHUNKS * 2 + 1) * (BACKGROUND_RADIUS_CHUNKS * 2 + 1);
+            int radius = getEffectiveScanRadius(client);
+            scanQueueSize = (radius * 2 + 1) * (radius * 2 + 1);
         }
-        // Foreground priority: inspect all loaded chunks in the 3x3 area first.
-        // Background priority: only after the foreground is complete, inspect the
-        // outer ring that expands the overall window to 5x5 chunks.
+        // getClampedViewDistance includes the server-provided view-distance limit.
+        // Only chunks already present in the client cache are inspected.
+        int radius = getEffectiveScanRadius(client);
+        scanQueueSize = (radius * 2 + 1) * (radius * 2 + 1);
         boolean processedChunk = false;
         for (int priority = 0; priority <= 1; priority++) {
             int firstRing = priority == 0 ? 0 : FOREGROUND_RADIUS_CHUNKS + 1;
-            int lastRing = priority == 0 ? FOREGROUND_RADIUS_CHUNKS : BACKGROUND_RADIUS_CHUNKS;
+            int lastRing = priority == 0 ? Math.min(FOREGROUND_RADIUS_CHUNKS, radius) : radius;
+            if (firstRing > lastRing) continue;
             for (int ring = firstRing; ring <= lastRing; ring++) {
             for (int dx = -ring; dx <= ring; dx++) {
                 for (int dz = -ring; dz <= ring; dz++) {
@@ -228,11 +230,17 @@ public final class SusChunkScanner {
         }
     }
 
+    private static int getEffectiveScanRadius(MinecraftClient client) {
+        return Math.max(2, Math.min(32, client.options.getClampedViewDistance()));
+    }
+
     private static Finding inspect(Chunk chunk, String dimension) {
         int amethyst = 0;
         int containers = 0;
         int redstone = 0;
         int spawners = 0;
+        int alteredBlocks = 0;
+        int airPockets = 0;
         int minY = chunk.getBottomY();
         int maxY = minY + chunk.getHeight();
         BlockPos.Mutable pos = new BlockPos.Mutable();
@@ -250,6 +258,23 @@ public final class SusChunkScanner {
                     if (state.isOf(Blocks.OBSERVER) || state.isOf(Blocks.PISTON)
                             || state.isOf(Blocks.STICKY_PISTON) || state.isOf(Blocks.REDSTONE_WIRE)) redstone++;
                     if (state.isOf(Blocks.SPAWNER)) spawners++;
+                    if (isLikelyPlayerPlacedBlock(state)) alteredBlocks++;
+
+                    // Count underground air blocks fully surrounded by solid blocks.
+                    // Ignore chunk borders to avoid checking adjacent chunks.
+                    if (x > 0 && x < 15 && z > 0 && z < 15 && y > minY + 1
+                            && y < maxY - 1 && state.isAir()) {
+                        int bx = chunk.getPos().getStartX() + x;
+                        int bz = chunk.getPos().getStartZ() + z;
+                        if (isSolid(chunk, bx + 1, y, bz)
+                                && isSolid(chunk, bx - 1, y, bz)
+                                && isSolid(chunk, bx, y + 1, bz)
+                                && isSolid(chunk, bx, y - 1, bz)
+                                && isSolid(chunk, bx, y, bz + 1)
+                                && isSolid(chunk, bx, y, bz - 1)) {
+                            airPockets++;
+                        }
+                    }
                 }
             }
         }
@@ -272,6 +297,14 @@ public final class SusChunkScanner {
             score += 25;
             clues.add("Spawner block");
         }
+        if (alteredBlocks >= 12) {
+            score += Math.min(20, 5 + alteredBlocks / 8);
+            clues.add("Man-made/altered blocks (" + alteredBlocks + ")");
+        }
+        if (airPockets >= 3) {
+            score += Math.min(20, 5 + airPockets / 3);
+            clues.add("Enclosed air pockets (" + airPockets + ")");
+        }
         if (clues.size() >= 2) score += 10;
         score = Math.min(100, score);
         if (score < 15 || clues.isEmpty()) return null;
@@ -279,6 +312,32 @@ public final class SusChunkScanner {
         String clue = String.join(" • ", clues);
         return new Finding(chunk.getPos().x, chunk.getPos().z, score, clue,
                 System.currentTimeMillis(), dimension, 0, amethyst > 0);
+    }
+
+    private static boolean isSolid(Chunk chunk, int x, int y, int z) {
+        BlockState state = chunk.getBlockState(new BlockPos(x, y, z));
+        return !state.isAir() && state.isSolidBlock(MinecraftClient.getInstance().world, new BlockPos(x, y, z));
+    }
+
+    private static boolean isLikelyPlayerPlacedBlock(BlockState state) {
+        return state.isOf(Blocks.CHEST) || state.isOf(Blocks.TRAPPED_CHEST)
+                || state.isOf(Blocks.BARREL) || state.isOf(Blocks.CRAFTING_TABLE)
+                || state.isOf(Blocks.FURNACE) || state.isOf(Blocks.BLAST_FURNACE)
+                || state.isOf(Blocks.SMOKER) || state.isOf(Blocks.ANVIL)
+                || state.isOf(Blocks.OBSERVER) || state.isOf(Blocks.PISTON)
+                || state.isOf(Blocks.STICKY_PISTON) || state.isOf(Blocks.REDSTONE_WIRE)
+                || state.isOf(Blocks.REPEATER) || state.isOf(Blocks.COMPARATOR)
+                || state.isOf(Blocks.HOPPER) || state.isOf(Blocks.DISPENSER)
+                || state.isOf(Blocks.DROPPER) || state.isOf(Blocks.GLASS)
+                || state.isOf(Blocks.GLASS_PANE) || state.isOf(Blocks.OAK_PLANKS)
+                || state.isOf(Blocks.SPRUCE_PLANKS) || state.isOf(Blocks.BIRCH_PLANKS)
+                || state.isOf(Blocks.JUNGLE_PLANKS) || state.isOf(Blocks.ACACIA_PLANKS)
+                || state.isOf(Blocks.DARK_OAK_PLANKS) || state.isOf(Blocks.MANGROVE_PLANKS)
+                || state.isOf(Blocks.CHERRY_PLANKS) || state.isOf(Blocks.BAMBOO_PLANKS)
+                || state.isOf(Blocks.CRIMSON_PLANKS) || state.isOf(Blocks.WARPED_PLANKS)
+                || state.isOf(Blocks.BRICKS) || state.isOf(Blocks.STONE_BRICKS)
+                || state.isOf(Blocks.POLISHED_ANDESITE) || state.isOf(Blocks.POLISHED_DIORITE)
+                || state.isOf(Blocks.POLISHED_GRANITE) || state.isOf(Blocks.COBBLESTONE);
     }
 
     public record Finding(int chunkX, int chunkZ, int score, String clue, long lastSeen,
