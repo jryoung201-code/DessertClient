@@ -238,6 +238,8 @@ public final class SusChunkScanner {
         int spawners = 0;
         int alteredBlocks = 0;
         int airPockets = 0;
+        int clueMinY = Integer.MAX_VALUE;
+        int clueMaxY = Integer.MIN_VALUE;
         int minY = chunk.getBottomY();
         int maxY = minY + chunk.getHeight();
         BlockPos.Mutable pos = new BlockPos.Mutable();
@@ -246,16 +248,24 @@ public final class SusChunkScanner {
                 for (int z = 0; z < 16; z++) {
                     pos.set(chunk.getPos().getStartX() + x, y, chunk.getPos().getStartZ() + z);
                     BlockState state = chunk.getBlockState(pos);
-                    if (state.isOf(Blocks.BUDDING_AMETHYST) || state.isOf(Blocks.AMETHYST_CLUSTER)
-                            || state.isOf(Blocks.LARGE_AMETHYST_BUD) || state.isOf(Blocks.MEDIUM_AMETHYST_BUD)
-                            || state.isOf(Blocks.SMALL_AMETHYST_BUD)) amethyst++;
-                    if (state.isOf(Blocks.CHEST) || state.isOf(Blocks.TRAPPED_CHEST)
+                    boolean amethystBlock = state.isOf(Blocks.BUDDING_AMETHYST)
+                            || state.isOf(Blocks.AMETHYST_CLUSTER) || state.isOf(Blocks.LARGE_AMETHYST_BUD)
+                            || state.isOf(Blocks.MEDIUM_AMETHYST_BUD) || state.isOf(Blocks.SMALL_AMETHYST_BUD);
+                    boolean containerBlock = state.isOf(Blocks.CHEST) || state.isOf(Blocks.TRAPPED_CHEST)
                             || state.isOf(Blocks.BARREL) || state.isOf(Blocks.DISPENSER)
-                            || state.isOf(Blocks.DROPPER)) containers++;
-                    if (state.isOf(Blocks.OBSERVER) || state.isOf(Blocks.PISTON)
-                            || state.isOf(Blocks.STICKY_PISTON) || state.isOf(Blocks.REDSTONE_WIRE)) redstone++;
-                    if (state.isOf(Blocks.SPAWNER)) spawners++;
+                            || state.isOf(Blocks.DROPPER);
+                    boolean redstoneBlock = state.isOf(Blocks.OBSERVER) || state.isOf(Blocks.PISTON)
+                            || state.isOf(Blocks.STICKY_PISTON) || state.isOf(Blocks.REDSTONE_WIRE);
+                    boolean spawnerBlock = state.isOf(Blocks.SPAWNER);
+                    if (amethystBlock) amethyst++;
+                    if (containerBlock) containers++;
+                    if (redstoneBlock) redstone++;
+                    if (spawnerBlock) spawners++;
                     if (isLikelyPlayerPlacedBlock(state)) alteredBlocks++;
+                    if (amethystBlock || containerBlock || redstoneBlock || spawnerBlock) {
+                        clueMinY = Math.min(clueMinY, y);
+                        clueMaxY = Math.max(clueMaxY, y);
+                    }
 
                     // Count underground air blocks fully surrounded by solid blocks.
                     // Ignore chunk borders to avoid checking adjacent chunks.
@@ -307,8 +317,15 @@ public final class SusChunkScanner {
         if (score < 15 || clues.isEmpty()) return null;
 
         String clue = String.join(" • ", clues);
+        if (clueMinY == Integer.MAX_VALUE) {
+            clueMinY = Math.max(minY, chunk.getHighestBlockY() - 8);
+            clueMaxY = Math.min(maxY - 1, clueMinY + 16);
+        }
+        // Keep the highlight close to detected clues instead of spanning the entire world height.
+        clueMinY = Math.max(minY, clueMinY - 3);
+        clueMaxY = Math.min(maxY, clueMaxY + 4);
         return new Finding(chunk.getPos().x, chunk.getPos().z, score, clue,
-                System.currentTimeMillis(), dimension, 0, amethyst > 0);
+                System.currentTimeMillis(), dimension, 0, amethyst > 0, clueMinY, clueMaxY);
     }
 
     private static boolean isSolid(Chunk chunk, int x, int y, int z) {
@@ -338,5 +355,6 @@ public final class SusChunkScanner {
     }
 
     public record Finding(int chunkX, int chunkZ, int score, String clue, long lastSeen,
-                          String dimension, int scannedAtChunkVersion, boolean hasAmethyst) {}
+                          String dimension, int scannedAtChunkVersion, boolean hasAmethyst,
+                          int minY, int maxY) {}
 }
