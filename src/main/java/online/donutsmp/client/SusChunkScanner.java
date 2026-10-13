@@ -223,11 +223,8 @@ public final class SusChunkScanner {
             }
             }
         }
-        // No new loaded chunks remain in the current radius; begin another pass next tick.
-        if (!processedChunk) {
-            SCANNED.clear();
-            scannedChunks = 0;
-        }
+        // Keep completed chunks cached for this player-centered window. Clearing
+        // the set here would repeatedly rescan the first loaded chunk forever.
     }
 
     private static int getEffectiveScanRadius(MinecraftClient client) {
