@@ -229,6 +229,10 @@ public final class SusChunkScanner {
         int containers = 0;
         int redstone = 0;
         int spawners = 0;
+        int undergroundAir = 0;
+        int unusualDeepslate = 0;
+        java.util.Set<String> unusualTypes = new java.util.HashSet<>();
+        int[] deepslateYCounts = new int[chunk.getHeight()];
         int minY = chunk.getBottomY();
         int maxY = minY + chunk.getHeight();
         BlockPos.Mutable pos = new BlockPos.Mutable();
@@ -237,40 +241,107 @@ public final class SusChunkScanner {
                 for (int z = 0; z < 16; z++) {
                     pos.set(chunk.getPos().getStartX() + x, y, chunk.getPos().getStartZ() + z);
                     BlockState state = chunk.getBlockState(pos);
-                    if (state.isOf(Blocks.BUDDING_AMETHYST) || state.isOf(Blocks.AMETHYST_CLUSTER)
+                    boolean amethystClue = state.isOf(Blocks.AMETHYST_CLUSTER)
                             || state.isOf(Blocks.LARGE_AMETHYST_BUD) || state.isOf(Blocks.MEDIUM_AMETHYST_BUD)
-                            || state.isOf(Blocks.SMALL_AMETHYST_BUD)) amethyst++;
+                            || state.isOf(Blocks.SMALL_AMETHYST_BUD);
+                    if (amethystClue) { amethyst++; unusualTypes.add("amethyst"); }
                     if (state.isOf(Blocks.CHEST) || state.isOf(Blocks.TRAPPED_CHEST)
                             || state.isOf(Blocks.BARREL) || state.isOf(Blocks.DISPENSER)
-                            || state.isOf(Blocks.DROPPER)) containers++;
+                            || state.isOf(Blocks.DROPPER) || state.isOf(Blocks.HOPPER)) {
+                        containers++;
+                        unusualTypes.add("container");
+                    }
                     if (state.isOf(Blocks.OBSERVER) || state.isOf(Blocks.PISTON)
-                            || state.isOf(Blocks.STICKY_PISTON) || state.isOf(Blocks.REDSTONE_WIRE)) redstone++;
-                    if (state.isOf(Blocks.SPAWNER)) spawners++;
+                            || state.isOf(Blocks.STICKY_PISTON) || state.isOf(Blocks.REDSTONE_WIRE)
+                            || state.isOf(Blocks.REDSTONE_TORCH) || state.isOf(Blocks.REPEATER)
+                            || state.isOf(Blocks.COMPARATOR) || state.isOf(Blocks.LEVER)) {
+                        redstone++;
+                        unusualTypes.add("redstone");
+                    }
+                    if (state.isOf(Blocks.SPAWNER)) { spawners++; unusualTypes.add("spawner"); }
+                    if (state.isOf(Blocks.DEEPSLATE) || state.isOf(Blocks.COBBLED_DEEPSLATE)
+                            || state.isOf(Blocks.POLISHED_DEEPSLATE) || state.isOf(Blocks.DEEPSLATE_BRICKS)
+                            || state.isOf(Blocks.DEEPSLATE_TILES) || state.isOf(Blocks.CHISELED_DEEPSLATE)
+                            || state.isOf(Blocks.CRACKED_DEEPSLATE_BRICKS) || state.isOf(Blocks.CRACKED_DEEPSLATE_TILES)) {
+                        unusualDeepslate++;
+                        deepslateYCounts[y - minY]++;
+                        unusualTypes.add(state.getBlock().toString());
+                    }
+                    // Approximate underground cavities from air volume below the surface.
+                    if (state.isAir() && y < 50) undergroundAir++;
                 }
             }
         }
 
         int score = 0;
         List<String> clues = new ArrayList<>();
-        if (amethyst > 0) {
-            score += Math.min(35, 15 + amethyst * 2);
-            clues.add("Amethyst formation (" + amethyst + ")");
+
+        // Category 1: visible amethyst clusters and buds (budding blocks alone
+        // are common inside natural geodes, so they do not count as buds).
+        int amethystPoints = amethyst >= 6 ? 24 : amethyst >= 3 ? 15 : amethyst >= 1 ? 7 : 0;
+        if (amethystPoints > 0) {
+            score += amethystPoints;
+            clues.add((amethyst >= 6 ? "High" : amethyst >= 3 ? "Medium" : "Low")
+                    + " amethyst clue (" + amethyst + " buds/clusters)");
         }
-        if (containers > 0) {
-            score += Math.min(35, 12 + containers * 8);
-            clues.add("Container blocks (" + containers + ")");
+
+        // Category 2: different unusual block families in the same chunk.
+        int typeCount = unusualTypes.size();
+        int typePoints = typeCount >= 6 ? 24 : typeCount >= 4 ? 16 : typeCount >= 2 ? 8 : 0;
+        if (typePoints > 0) {
+            score += typePoints;
+            clues.add((typeCount >= 6 ? "High" : typeCount >= 4 ? "Medium" : "Low")
+                    + " mixed block types (" + typeCount + ")");
         }
-        if (redstone >= 8) {
-            score += Math.min(20, 5 + redstone);
-            clues.add("Redstone machinery (" + redstone + ")");
+
+        // Category 3: underground air volume is only a rough cavity proxy;
+        // it is deliberately weighted lightly because natural caves are common.
+        int airPoints = undergroundAir >= 1800 ? 22 : undergroundAir >= 700 ? 13 : undergroundAir >= 200 ? 6 : 0;
+        if (airPoints > 0) {
+            score += airPoints;
+            clues.add((airPoints >= 22 ? "High" : airPoints >= 13 ? "Medium" : "Low")
+                    + " underground cavity-like air");
         }
-        if (spawners > 0) {
-            score += 25;
-            clues.add("Spawner block");
+
+        // Category 4: repeated deepslate variants are more notable than a few.
+        int deepslatePoints = unusualDeepslate >= 40 ? 20 : unusualDeepslate >= 12 ? 12 : unusualDeepslate >= 3 ? 5 : 0;
+        if (deepslatePoints > 0) {
+            score += deepslatePoints;
+            clues.add((deepslatePoints >= 20 ? "High" : deepslatePoints >= 12 ? "Medium" : "Low")
+                    + " unusual deepslate arrangement (" + unusualDeepslate + ")");
         }
-        if (clues.size() >= 2) score += 10;
-        score = Math.min(100, score);
-        if (score < 15 || clues.isEmpty()) return null;
+
+        // Category 5: containers are counted within this chunk; nearby chunks
+        // contribute their own findings rather than being merged as one cluster.
+        int containerPoints = containers >= 4 ? 22 : containers >= 2 ? 14 : containers == 1 ? 6 : 0;
+        if (containerPoints > 0) {
+            score += containerPoints;
+            clues.add((containers >= 4 ? "High" : containers >= 2 ? "Medium" : "Low")
+                    + " containers (" + containers + ")");
+        }
+
+        // Supporting evidence, not one of the five primary clue categories.
+        if (redstone >= 8) { score += 5; clues.add("Redstone machinery (" + redstone + ")"); }
+        if (spawners > 0) { score += 8; clues.add("Spawner block"); }
+
+        int primaryClues = (amethystPoints > 0 ? 1 : 0) + (typePoints > 0 ? 1 : 0)
+                + (airPoints > 0 ? 1 : 0) + (deepslatePoints > 0 ? 1 : 0)
+                + (containerPoints > 0 ? 1 : 0);
+        // Independent clue categories reinforce one another more than one clue alone.
+        if (primaryClues >= 2) score += 8;
+        if (primaryClues >= 3) score += 10;
+        if (primaryClues >= 4) score += 10;
+        if (primaryClues >= 5) score += 10;
+
+        // Reduce likely natural formations: geodes commonly contain amethyst,
+        // while large underground air volumes are common in caves/mineshafts.
+        if (amethyst > 0 && containers == 0 && redstone == 0 && spawners == 0
+                && unusualDeepslate == 0) score -= 12;
+        if (undergroundAir >= 1800 && containers == 0 && redstone == 0 && spawners == 0
+                && amethyst == 0 && unusualDeepslate < 12) score -= 10;
+
+        score = Math.max(0, Math.min(100, score));
+        if (score < 10 || clues.isEmpty()) return null;
 
         String clue = String.join(" • ", clues);
         return new Finding(chunk.getPos().x, chunk.getPos().z, score, clue,
