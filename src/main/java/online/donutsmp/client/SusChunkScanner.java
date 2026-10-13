@@ -84,7 +84,18 @@ public final class SusChunkScanner {
         }
     }
 
-    public static boolean isAmethystHighlightEnabled() {\n        loadSettings();\n        return amethystHighlightEnabled;\n    }\n\n    public static void setAmethystHighlightEnabled(boolean value) {\n        loadSettings();\n        amethystHighlightEnabled = value;\n        saveSettings();\n    }\n\n    public static boolean areNotificationsEnabled() {
+    public static boolean isAmethystHighlightEnabled() {
+        loadSettings();
+        return amethystHighlightEnabled;
+    }
+
+    public static void setAmethystHighlightEnabled(boolean value) {
+        loadSettings();
+        amethystHighlightEnabled = value;
+        saveSettings();
+    }
+
+    public static boolean areNotificationsEnabled() {
         loadSettings();
         return notificationsEnabled;
     }
