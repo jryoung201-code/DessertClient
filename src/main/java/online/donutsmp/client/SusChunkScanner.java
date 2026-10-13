@@ -12,7 +12,7 @@ import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ChunkPos;
+import net.minecraft.util.math.ChunkPos;
 
 /**
  * Client-only heuristic scanner. It never requests chunks: only chunks already
@@ -174,7 +174,7 @@ public final class SusChunkScanner {
 
         String clue = String.join(" • ", clues);
         return new Finding(chunk.getPos().x, chunk.getPos().z, score, clue,
-                System.currentTimeMillis(), dimension, chunk.getBlockEntities().hashCode());
+                System.currentTimeMillis(), dimension, 0);
     }
 
     public record Finding(int chunkX, int chunkZ, int score, String clue, long lastSeen,
