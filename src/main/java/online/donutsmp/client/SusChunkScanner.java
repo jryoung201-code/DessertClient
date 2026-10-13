@@ -85,6 +85,7 @@ public final class SusChunkScanner {
         int total = (RADIUS_CHUNKS * 2 + 1) * (RADIUS_CHUNKS * 2 + 1);
         scanQueueSize = total;
         // Walk a deterministic spiral-like square, starting near the player.
+        boolean processedChunk = false;
         for (int ring = 0; ring <= RADIUS_CHUNKS; ring++) {
             for (int dx = -ring; dx <= ring; dx++) {
                 for (int dz = -ring; dz <= ring; dz++) {
@@ -98,7 +99,7 @@ public final class SusChunkScanner {
                     if (SCANNED.contains(key)) continue;
                     Finding finding = inspect(chunk, currentDimension);
                     SCANNED.add(key);
-                    if (SCANNED.size() > 512) SCANNED.clear();
+                    processedChunk = true;
                     scannedChunks++;
                     if (finding != null) {
                         FINDINGS.put(key, finding);
@@ -115,6 +116,11 @@ public final class SusChunkScanner {
                     return;
                 }
             }
+        }
+        // No new loaded chunks remain in the current radius; begin another pass next tick.
+        if (!processedChunk) {
+            SCANNED.clear();
+            scannedChunks = 0;
         }
     }
 
