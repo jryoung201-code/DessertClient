@@ -64,11 +64,16 @@ public final class DonutClientScreen extends Screen {
         clearAndInit();
     }
 
+    // Screen.render calls this hook before drawing widgets. Keep it empty so
+    // Minecraft/Dawn cannot request the vanilla blur a second time this frame.
+    @Override
+    protected void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+        // The custom background is drawn in render() below.
+    }
+
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Draw our own background instead of calling renderBackground(), which
-        // requests Minecraft's one-per-frame blur and can crash with other clients.
-        context.fill(0, 0, width, height, 0x99030A13);
+        context.fill(0, 0, width, height, 0xFF030A13);
         int left = Math.max(16, (width - 760) / 2);
         int top = Math.max(16, (height - 470) / 2);
         int mainX = left + 190;
