@@ -318,7 +318,7 @@ public final class SusChunkScanner {
 
         String clue = String.join(" • ", clues);
         if (clueMinY == Integer.MAX_VALUE) {
-            clueMinY = Math.max(minY, chunk.getHighestBlockY() - 8);
+            clueMinY = Math.max(minY, minY + chunk.getHeight() / 2 - 8);
             clueMaxY = Math.min(maxY - 1, clueMinY + 16);
         }
         // Keep the highlight close to detected clues instead of spanning the entire world height.
