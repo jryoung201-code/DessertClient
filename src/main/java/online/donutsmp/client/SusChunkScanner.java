@@ -250,6 +250,7 @@ public final class SusChunkScanner {
         int containers = 0;
         int redstone = 0;
         int spawners = 0;
+        int nonNaturalBlocks = 0;
         int alteredBlocks = 0;
         int airPockets = 0;
         int clueMinY = Integer.MAX_VALUE;
@@ -271,12 +272,22 @@ public final class SusChunkScanner {
                     boolean redstoneBlock = state.isOf(Blocks.OBSERVER) || state.isOf(Blocks.PISTON)
                             || state.isOf(Blocks.STICKY_PISTON) || state.isOf(Blocks.REDSTONE_WIRE);
                     boolean spawnerBlock = state.isOf(Blocks.SPAWNER);
+                    // These utility/admin blocks are not part of normal world generation.
+                    boolean nonNaturalBlock = state.isOf(Blocks.COMMAND_BLOCK)
+                            || state.isOf(Blocks.CHAIN_COMMAND_BLOCK)
+                            || state.isOf(Blocks.REPEATING_COMMAND_BLOCK)
+                            || state.isOf(Blocks.BARRIER)
+                            || state.isOf(Blocks.STRUCTURE_BLOCK)
+                            || state.isOf(Blocks.JIGSAW)
+                            || state.isOf(Blocks.STRUCTURE_VOID)
+                            || state.isOf(Blocks.LIGHT);
                     if (amethystBlock) amethyst++;
                     if (containerBlock) containers++;
                     if (redstoneBlock) redstone++;
                     if (spawnerBlock) spawners++;
+                    if (nonNaturalBlock) nonNaturalBlocks++;
                     if (isLikelyPlayerPlacedBlock(state)) alteredBlocks++;
-                    if (amethystBlock || containerBlock || redstoneBlock || spawnerBlock) {
+                    if (amethystBlock || containerBlock || redstoneBlock || spawnerBlock || nonNaturalBlock) {
                         clueMinY = Math.min(clueMinY, y);
                         clueMaxY = Math.max(clueMaxY, y);
                     }
@@ -317,6 +328,10 @@ public final class SusChunkScanner {
         if (spawners > 0) {
             score += 25;
             clues.add("Spawner block");
+        }
+        if (nonNaturalBlocks > 0) {
+            score += Math.min(55, 40 + (nonNaturalBlocks - 1) * 5);
+            clues.add("Non-natural utility blocks (" + nonNaturalBlocks + ")");
         }
         if (alteredBlocks >= 12) {
             score += Math.min(20, 5 + alteredBlocks / 8);
