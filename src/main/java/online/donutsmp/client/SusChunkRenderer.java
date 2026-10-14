@@ -1,15 +1,23 @@
 package online.donutsmp.client;
 
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.render.RenderSetup;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.VertexRendering;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.shape.VoxelShapes;
+
+import java.util.Optional;
 
 /**
  * Draws outlines around suspicious chunks using the Minecraft 1.21.11
@@ -18,6 +26,36 @@ import net.minecraft.util.shape.VoxelShapes;
 public final class SusChunkRenderer {
     private static boolean highlightEnabled = true;
     private static boolean throughWalls = true;
+
+    /*
+     * Clone the vanilla line pipeline's shader/format state, but explicitly
+     * disable depth testing. LINES_TRANSLUCENT only disables depth writes and
+     * therefore does not, by itself, make lines visible through blocks.
+     */
+    private static final RenderPipeline THROUGH_WALLS_PIPELINE =
+            RenderPipeline.builder(new RenderPipeline.Snippet(
+                    Optional.of(RenderPipelines.LINES.getVertexShader()),
+                    Optional.of(RenderPipelines.LINES.getFragmentShader()),
+                    Optional.of(RenderPipelines.LINES.getShaderDefines()),
+                    Optional.of(RenderPipelines.LINES.getSamplers()),
+                    Optional.of(RenderPipelines.LINES.getUniforms()),
+                    RenderPipelines.LINES.getBlendFunction(),
+                    Optional.of(DepthTestFunction.NO_DEPTH_TEST),
+                    Optional.of(RenderPipelines.LINES.getPolygonMode()),
+                    Optional.of(false),
+                    Optional.of(RenderPipelines.LINES.isWriteColor()),
+                    Optional.of(RenderPipelines.LINES.isWriteAlpha()),
+                    Optional.of(false),
+                    Optional.of(RenderPipelines.LINES.getColorLogic()),
+                    Optional.of(RenderPipelines.LINES.getVertexFormat()),
+                    Optional.of(RenderPipelines.LINES.getVertexFormatMode())
+            )).withLocation(Identifier.of("dessert-client", "pipeline/through_walls_lines"))
+                    .build();
+
+    private static final RenderLayer THROUGH_WALLS_LINES = RenderLayer.of(
+            "dessert_client_through_walls_lines",
+            RenderSetup.builder(THROUGH_WALLS_PIPELINE).build()
+    );
 
     private SusChunkRenderer() {}
 
@@ -45,7 +83,7 @@ public final class SusChunkRenderer {
 
             Vec3d camera = client.gameRenderer.getCamera().getCameraPos();
             VertexConsumer lines = consumers.getBuffer(
-                    throughWalls ? RenderLayers.linesTranslucent() : RenderLayers.lines());
+                    throughWalls ? THROUGH_WALLS_LINES : RenderLayers.lines());
 
             matrices.push();
             matrices.translate(-camera.x, -camera.y, -camera.z);
