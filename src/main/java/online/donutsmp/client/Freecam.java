@@ -5,6 +5,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.storage.ReadView;
 import net.minecraft.storage.WriteView;
 import net.minecraft.util.PlayerInput;
@@ -60,6 +62,7 @@ public final class Freecam {
         @Override protected void initDataTracker(net.minecraft.entity.data.DataTracker.Builder builder) {}
         @Override protected void readCustomData(ReadView view) {}
         @Override protected void writeCustomData(WriteView view) {}
+        @Override public boolean damage(ServerWorld world, DamageSource source, float amount) { return false; }
         @Override public boolean shouldRender(double distance) { return false; }
     }
 }
