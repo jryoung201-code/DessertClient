@@ -36,8 +36,9 @@ public final class DonutClientScreen extends Screen {
     private static final int YELLOW = 0xFFE9D84A;
 
     private static final String SCANNER = "SUS Chunk Scanner";
-    private static final String[] PAGES = {"Dashboard", SCANNER, "Money Tracker", "Auction House", "Waypoints", "Player", "World", "Render", "Utilities", "Configs"};
-    private static final String[] ICONS = {"⌂", "◎", "▤", "⚒", "◆", "♟", "⬡", "◉", "⚙", "▣"};
+    private static final String SPAWNER_ESP = "Spawner ESP";
+    private static final String[] PAGES = {"Dashboard", SCANNER, SPAWNER_ESP, "Money Tracker", "Auction House", "Waypoints", "Player", "World", "Render", "Utilities", "Configs"};
+    private static final String[] ICONS = {"⌂", "◎", "◉", "▤", "⚒", "◆", "♟", "⬡", "◉", "⚙", "▣"};
     private static final int SIDE_COL_W = 156;
     private static final int SIDE_COL_GAP = 10;
 
@@ -97,6 +98,8 @@ public final class DonutClientScreen extends Screen {
             drawStatus(c);
             drawControls(c, mouseX, mouseY);
             drawRecent(c);
+        } else if (SPAWNER_ESP.equals(activePage)) {
+            drawSpawnerEsp(c, mouseX, mouseY);
         } else if ("Configs".equals(activePage)) {
             drawSettings(c, mouseX, mouseY);
         } else {
@@ -193,7 +196,7 @@ public final class DonutClientScreen extends Screen {
             donut(c, mainX + 14, y0 + 14, 10, WINDOW);
         }
         drawBold(c, activePage, mainX + 36, y0 + 4, TEXT);
-        String subtitle = scanner ? "Underground clues  •  Chunk coordinates  •  Local scan results" : "This page is coming soon";
+        String subtitle = scanner ? "Underground clues  •  Chunk coordinates  •  Local scan results" : (SPAWNER_ESP.equals(activePage) ? "Loaded mob spawners  •  Configurable outline" : "This page is coming soon");
         int subMax = mainW - 36 - (scanner ? 118 + 10 : 0);
         drawText(c, textRenderer.trimToWidth(subtitle, subMax), mainX + 36, y0 + 18, MUTED);
 
@@ -204,6 +207,46 @@ public final class DonutClientScreen extends Screen {
             disc(c, px + 14, py + ph / 2, 4, scannerEnabled ? GREEN : 0xFF8A7480);
             drawText(c, scannerEnabled ? "Ready to scan" : "Scanner paused", px + 26, py + 8, TEXT);
         }
+    }
+
+
+    private void drawSpawnerEsp(DrawContext c, int mx, int my) {
+        int h = top + panelH - 14 - statusY;
+        if (h < 150) return;
+        roundBox(c, mainX, statusY, mainW, h, 6, PANEL, BORDER_DIM);
+        drawBold(c, "SPAWNER ESP", mainX + 14, statusY + 14, PINK_LIGHT);
+        drawText(c, "Outline mob spawners found in already-loaded chunks.", mainX + 14, statusY + 34, MUTED);
+
+        int x = mainX + 14, w = mainW - 28;
+        int toggleY = statusY + 58;
+        boolean hoverToggle = mx >= x && mx < x + w && my >= toggleY && my < toggleY + 38;
+        roundBox(c, x, toggleY, w, 38, 5, hoverToggle ? 0xFF321626 : INNER,
+                SpawnerEsp.isEnabled() ? PINK_HOT : BORDER_DIM);
+        disc(c, x + 16, toggleY + 19, 4, SpawnerEsp.isEnabled() ? GREEN : 0xFF8A7480);
+        drawText(c, "Spawner ESP: " + (SpawnerEsp.isEnabled() ? "ON" : "OFF"), x + 30, toggleY + 14, TEXT);
+        drawSwitch(c, x + w - 38, toggleY + 12, SpawnerEsp.isEnabled());
+
+        int rowY = toggleY + 50;
+        drawText(c, "Render distance", x + 2, rowY + 9, TEXT);
+        drawText(c, SpawnerEsp.getRenderDistance() + " chunks", x + 120, rowY + 9, PINK_LIGHT);
+        int minusX = x + w - 74, plusX = x + w - 34;
+        boolean hm = mx >= minusX && mx < minusX + 28 && my >= rowY && my < rowY + 28;
+        boolean hp = mx >= plusX && mx < plusX + 28 && my >= rowY && my < rowY + 28;
+        roundBox(c, minusX, rowY, 28, 28, 4, hm ? 0xFF6E1F45 : INNER, BORDER_DIM);
+        roundBox(c, plusX, rowY, 28, 28, 4, hp ? 0xFF6E1F45 : INNER, BORDER_DIM);
+        drawCentered(c, "−", minusX + 14, rowY + 9, TEXT);
+        drawCentered(c, "+", plusX + 14, rowY + 9, TEXT);
+
+        int colorY = rowY + 42;
+        drawText(c, "Outline color", x + 2, colorY + 9, TEXT);
+        disc(c, x + 104, colorY + 14, 6, SpawnerEsp.getColor());
+        int colorW = 124;
+        boolean hc = mx >= x + w - colorW && mx < x + w && my >= colorY && my < colorY + 28;
+        roundBox(c, x + w - colorW, colorY, colorW, 28, 4, hc ? 0xFF6E1F45 : INNER, BORDER_DIM);
+        drawCentered(c, "Cycle color", x + w - colorW / 2, colorY + 9, TEXT);
+
+        drawText(c, "Detected spawners: " + SpawnerEsp.getSpawnerCount(), x + 2, colorY + 42, MUTED);
+        drawText(c, "Scans loaded chunks only; no chunk loading requests.", x + 2, colorY + 59, MUTED);
     }
 
     private void drawSettings(DrawContext c, int mx, int my) {
@@ -573,6 +616,31 @@ public final class DonutClientScreen extends Screen {
                     if (current < levels[i]) { next = levels[i]; break; }
                 }
                 SusChunkScanner.setNotificationThreshold(next);
+                return true;
+            }
+        }
+
+        if (SPAWNER_ESP.equals(activePage)) {
+            int x = mainX + 14, w = mainW - 28;
+            int toggleY = statusY + 58;
+            if (mouseX >= x && mouseX < x + w && mouseY >= toggleY && mouseY < toggleY + 38) {
+                SpawnerEsp.setEnabled(!SpawnerEsp.isEnabled());
+                return true;
+            }
+            int rowY = toggleY + 50;
+            if (mouseY >= rowY && mouseY < rowY + 28) {
+                if (mouseX >= x + w - 74 && mouseX < x + w - 46) {
+                    SpawnerEsp.adjustRenderDistance(-2);
+                    return true;
+                }
+                if (mouseX >= x + w - 34 && mouseX < x + w - 6) {
+                    SpawnerEsp.adjustRenderDistance(2);
+                    return true;
+                }
+            }
+            int colorY = rowY + 42;
+            if (mouseX >= x + w - 124 && mouseX < x + w && mouseY >= colorY && mouseY < colorY + 28) {
+                SpawnerEsp.cycleColor();
                 return true;
             }
         }
