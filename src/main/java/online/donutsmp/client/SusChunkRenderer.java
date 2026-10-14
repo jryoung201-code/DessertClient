@@ -28,11 +28,11 @@ public final class SusChunkRenderer {
     private static boolean throughWalls = true;
 
     /*
-     * Clone the vanilla line pipeline's shader/format state, but explicitly
-     * disable depth testing. LINES_TRANSLUCENT only disables depth writes and
-     * therefore does not, by itself, make lines visible through blocks.
+     * The vanilla translucent line layer still tests against the depth buffer.
+     * This custom pipeline reuses the vanilla line shader and vertex format but
+     * explicitly disables depth testing so the outline can be seen through blocks.
      */
-    private static final RenderPipeline THROUGH_WALLS_PIPELINE =
+    private static final RenderPipeline THROUGH_WALLS_PIPELINE = RenderPipelines.register(
             RenderPipeline.builder(new RenderPipeline.Snippet(
                     Optional.of(RenderPipelines.LINES.getVertexShader()),
                     Optional.of(RenderPipelines.LINES.getFragmentShader()),
@@ -42,7 +42,7 @@ public final class SusChunkRenderer {
                     RenderPipelines.LINES.getBlendFunction(),
                     Optional.of(DepthTestFunction.NO_DEPTH_TEST),
                     Optional.of(RenderPipelines.LINES.getPolygonMode()),
-                    Optional.of(false),
+                    Optional.of(RenderPipelines.LINES.isCull()),
                     Optional.of(RenderPipelines.LINES.isWriteColor()),
                     Optional.of(RenderPipelines.LINES.isWriteAlpha()),
                     Optional.of(false),
@@ -50,7 +50,8 @@ public final class SusChunkRenderer {
                     Optional.of(RenderPipelines.LINES.getVertexFormat()),
                     Optional.of(RenderPipelines.LINES.getVertexFormatMode())
             )).withLocation(Identifier.of("dessert-client", "pipeline/through_walls_lines"))
-                    .build();
+                    .build()
+    );
 
     private static final RenderLayer THROUGH_WALLS_LINES = RenderLayer.of(
             "dessert_client_through_walls_lines",
@@ -98,13 +99,9 @@ public final class SusChunkRenderer {
 
                     int x = finding.chunkX() << 4;
                     int z = finding.chunkZ() << 4;
-                    // Draw only around the vertical area containing the detected clues.
-                    // Full-world-height boxes can stretch into the sky when viewed from above.
                     Box box = new Box(x, finding.minY(), z,
                             x + 16, Math.max(finding.minY() + 1, finding.maxY()), z + 16);
-                    int color = finding.hasAmethyst()
-                            ? 0xFFB847FF
-                            : 0xFFFF1F2E;
+                    int color = finding.hasAmethyst() ? 0xFFB847FF : 0xFFFF1F2E;
                     VertexRendering.drawOutline(
                             matrices, lines, VoxelShapes.cuboid(box),
                             0.0, 0.0, 0.0, color, 2.0f);
