@@ -6,13 +6,19 @@ import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.MobSpawnerBlockEntity;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayers;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DepthTestFunction;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderSetup;
+import net.minecraft.util.Identifier;
+
+import java.util.Optional;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.VertexRendering;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.chunk.WorldChunk;
@@ -32,6 +38,37 @@ public final class SpawnerEsp {
     private static int cursorX;
     private static int cursorZ;
     private static int tickCounter;
+
+    /*
+     * Reuse SUS Chunk Finder's custom line pipeline: the vanilla lines layer
+     * depth-tests against blocks, while this pipeline explicitly disables depth
+     * testing so spawner outlines remain visible through walls.
+     */
+    private static final RenderPipeline THROUGH_WALLS_PIPELINE = RenderPipelines.register(
+            RenderPipeline.builder(new RenderPipeline.Snippet(
+                    Optional.of(RenderPipelines.LINES.getVertexShader()),
+                    Optional.of(RenderPipelines.LINES.getFragmentShader()),
+                    Optional.of(RenderPipelines.LINES.getShaderDefines()),
+                    Optional.of(RenderPipelines.LINES.getSamplers()),
+                    Optional.of(RenderPipelines.LINES.getUniforms()),
+                    RenderPipelines.LINES.getBlendFunction(),
+                    Optional.of(DepthTestFunction.NO_DEPTH_TEST),
+                    Optional.of(RenderPipelines.LINES.getPolygonMode()),
+                    Optional.of(RenderPipelines.LINES.isCull()),
+                    Optional.of(RenderPipelines.LINES.isWriteColor()),
+                    Optional.of(RenderPipelines.LINES.isWriteAlpha()),
+                    Optional.of(false),
+                    Optional.of(RenderPipelines.LINES.getColorLogic()),
+                    Optional.of(RenderPipelines.LINES.getVertexFormat()),
+                    Optional.of(RenderPipelines.LINES.getVertexFormatMode())
+            )).withLocation(Identifier.of("dessert-client", "pipeline/spawner_esp_through_walls"))
+                    .build()
+    );
+
+    private static final RenderLayer THROUGH_WALLS_LINES = RenderLayer.of(
+            "dessert_client_spawner_esp_through_walls",
+            RenderSetup.builder(THROUGH_WALLS_PIPELINE).build()
+    );
 
     private SpawnerEsp() {}
 
@@ -71,8 +108,8 @@ public final class SpawnerEsp {
             if (matrices == null || consumers == null) return;
 
             Vec3d camera = client.gameRenderer.getCamera().getCameraPos();
-            // Use the secondary block-outline layer so ESP outlines can remain visible behind blocks.
-            VertexConsumer lines = consumers.getBuffer(RenderLayers.secondaryBlockOutline());
+            // Same explicit no-depth-test line layer used by SUS Chunk Finder.
+            VertexConsumer lines = consumers.getBuffer(THROUGH_WALLS_LINES);
             matrices.push();
             matrices.translate(-camera.x, -camera.y, -camera.z);
             try {
