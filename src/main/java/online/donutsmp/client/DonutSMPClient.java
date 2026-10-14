@@ -26,6 +26,11 @@ public final class DonutSMPClient implements ClientModInitializer {
 
         SusChunkRenderer.register();
 
+        ClientChunkEvents.CHUNK_LOAD.register((world, chunk) ->
+                SusChunkScanner.onChunkLoaded(chunk.getPos()));
+        ClientChunkEvents.CHUNK_UNLOAD.register((world, chunk) ->
+                SusChunkScanner.onChunkUnloaded(chunk.getPos()));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             SusChunkScanner.tick(client);
             while (openClientKey.wasPressed()) {
