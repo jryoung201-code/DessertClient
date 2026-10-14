@@ -37,8 +37,9 @@ public final class DonutClientScreen extends Screen {
 
     private static final String SCANNER = "SUS Chunk Scanner";
     private static final String SPAWNER_ESP = "Spawner ESP";
-    private static final String[] PAGES = {"Dashboard", SCANNER, SPAWNER_ESP, "Money Tracker", "Auction House", "Waypoints", "Player", "World", "Render", "Utilities", "Configs"};
-    private static final String[] ICONS = {"⌂", "◎", "◉", "▤", "⚒", "◆", "♟", "⬡", "◉", "⚙", "▣"};
+    private static final String FREECAM = "Freecam";
+    private static final String[] PAGES = {"Dashboard", SCANNER, SPAWNER_ESP, FREECAM, "Money Tracker", "Auction House", "Waypoints", "Player", "World", "Render", "Utilities", "Configs"};
+    private static final String[] ICONS = {"⌂", "◎", "◉", "✥", "▤", "⚒", "◆", "♟", "⬡", "◉", "⚙", "▣"};
     private static final int SIDE_COL_W = 156;
     private static final int SIDE_COL_GAP = 10;
 
@@ -100,6 +101,8 @@ public final class DonutClientScreen extends Screen {
             drawRecent(c);
         } else if (SPAWNER_ESP.equals(activePage)) {
             drawSpawnerEsp(c, mouseX, mouseY);
+        } else if (FREECAM.equals(activePage)) {
+            drawFreecam(c, mouseX, mouseY);
         } else if ("Configs".equals(activePage)) {
             drawSettings(c, mouseX, mouseY);
         } else {
@@ -196,7 +199,7 @@ public final class DonutClientScreen extends Screen {
             donut(c, mainX + 14, y0 + 14, 10, WINDOW);
         }
         drawBold(c, activePage, mainX + 36, y0 + 4, TEXT);
-        String subtitle = scanner ? "Underground clues  •  Chunk coordinates  •  Local scan results" : (SPAWNER_ESP.equals(activePage) ? "Loaded mob spawners  •  Configurable outline" : "This page is coming soon");
+        String subtitle = scanner ? "Underground clues  •  Chunk coordinates  •  Local scan results" : (SPAWNER_ESP.equals(activePage) ? "Loaded mob spawners  •  Configurable outline" : (FREECAM.equals(activePage) ? "Detached camera  •  Client-side movement" : "This page is coming soon"));
         int subMax = mainW - 36 - (scanner ? 118 + 10 : 0);
         drawText(c, textRenderer.trimToWidth(subtitle, subMax), mainX + 36, y0 + 18, MUTED);
 
@@ -247,6 +250,35 @@ public final class DonutClientScreen extends Screen {
 
         drawText(c, "Detected spawners: " + SpawnerEsp.getSpawnerCount(), x + 2, colorY + 42, MUTED);
         drawText(c, "Scans loaded chunks only; no chunk loading requests.", x + 2, colorY + 59, MUTED);
+    }
+
+    private void drawFreecam(DrawContext c, int mx, int my) {
+        int h = top + panelH - 14 - statusY;
+        if (h < 150) return;
+        roundBox(c, mainX, statusY, mainW, h, 6, PANEL, BORDER_DIM);
+        drawBold(c, "FREECAM", mainX + 14, statusY + 14, PINK_LIGHT);
+        drawText(c, "Move a detached camera while your player stays in place.", mainX + 14, statusY + 34, MUTED);
+        int x = mainX + 14, w = mainW - 28, toggleY = statusY + 58;
+        boolean enabled = Freecam.isEnabled();
+        boolean hover = mx >= x && mx < x + w && my >= toggleY && my < toggleY + 38;
+        roundBox(c, x, toggleY, w, 38, 5, hover ? 0xFF321626 : INNER, enabled ? PINK_HOT : BORDER_DIM);
+        disc(c, x + 16, toggleY + 19, 4, enabled ? GREEN : 0xFF8A7480);
+        drawText(c, "Freecam: " + (enabled ? "ON" : "OFF"), x + 30, toggleY + 14, TEXT);
+        drawSwitch(c, x + w - 38, toggleY + 12, enabled);
+        int rowY = toggleY + 50;
+        drawText(c, "Camera speed", x + 2, rowY + 9, TEXT);
+        drawText(c, String.format(Locale.ROOT, "%.1f", Freecam.getSpeed()), x + 120, rowY + 9, PINK_LIGHT);
+        int minusX = x + w - 74, plusX = x + w - 34;
+        boolean hm = mx >= minusX && mx < minusX + 28 && my >= rowY && my < rowY + 28;
+        boolean hp = mx >= plusX && mx < plusX + 28 && my >= rowY && my < rowY + 28;
+        roundBox(c, minusX, rowY, 28, 28, 4, hm ? 0xFF6E1F45 : INNER, BORDER_DIM);
+        roundBox(c, plusX, rowY, 28, 28, 4, hp ? 0xFF6E1F45 : INNER, BORDER_DIM);
+        drawCentered(c, "−", minusX + 14, rowY + 9, TEXT);
+        drawCentered(c, "+", plusX + 14, rowY + 9, TEXT);
+        int helpY = rowY + 44;
+        drawText(c, "WASD: move   Space: up   Left Shift: down", x + 2, helpY, MUTED);
+        drawText(c, "Move the mouse to look. Toggle OFF to return to your player.", x + 2, helpY + 18, MUTED);
+        drawText(c, "Stops automatically on death, disconnect, or world change.", x + 2, helpY + 36, MUTED);
     }
 
     private void drawSettings(DrawContext c, int mx, int my) {
@@ -617,6 +649,20 @@ public final class DonutClientScreen extends Screen {
                 }
                 SusChunkScanner.setNotificationThreshold(next);
                 return true;
+            }
+        }
+
+        if (FREECAM.equals(activePage)) {
+            int x = mainX + 14, w = mainW - 28, toggleY = statusY + 58;
+            if (mouseX >= x && mouseX < x + w && mouseY >= toggleY && mouseY < toggleY + 38) {
+                if (Freecam.isEnabled()) Freecam.setEnabled(false, MinecraftClient.getInstance());
+                else if (Freecam.setEnabled(true, MinecraftClient.getInstance())) close();
+                return true;
+            }
+            int rowY = toggleY + 50;
+            if (mouseY >= rowY && mouseY < rowY + 28) {
+                if (mouseX >= x + w - 74 && mouseX < x + w - 46) { Freecam.adjustSpeed(-0.5); return true; }
+                if (mouseX >= x + w - 34 && mouseX < x + w - 6) { Freecam.adjustSpeed(0.5); return true; }
             }
         }
 

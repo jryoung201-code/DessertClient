@@ -2,10 +2,11 @@
 
 **Dessert Client — DonutSMP Edition** is a client-side utility mod for **Minecraft Java 1.21.11** built with Fabric. It uses a sweet pink, cream, and chocolate visual theme.
 
-## Current prototype — v0.3.4b
+## Current prototype — v0.3.5
 - Press **Right Shift** in-game to open the Dessert Client screen.
 - Pink-themed interface with a sidebar (Dashboard, SUS Chunk Scanner, Money Tracker, Auction House, Waypoints, Player, World, Render, Utilities, Configs), rounded panels, and a donut logo. Only the scanner page has content so far; the others show a "coming soon" card.
 - Scanner page: status pill, scanner status card, suspicion scale, switch-style toggles (scanner, chunk highlighting, through-wall highlighting), and a recent-chunks table.
+- **Freecam:** detached camera with WASD movement, Space to rise, Left Shift to descend, mouse look, and adjustable speed (0.5–10.0). The local player stays in place, and the camera stops on death, disconnect, or world/player changes. It does not request chunks or alter server-side data.
 - **Spawner ESP:** separate UI page with an on/off toggle, adjustable 2–16 chunk render radius, and cycling outline colors. Outlines use the secondary block-outline render layer for through-wall visibility. It checks block entities only in already-loaded chunks and draws a capped number of nearby outlines.
 - Right-hand info box (FPS, ping, server, XYZ, nether/overworld coordinates, facing, biome, speed) and a keybinds box, shown when the window is wide enough. TPS shows `--` because the client cannot measure it. Only "Open GUI" reflects a real keybind; the other keybinds shown are placeholders.
 - Smooth suspicion color scale: red, orange, yellow, and green.
