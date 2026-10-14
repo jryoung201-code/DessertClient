@@ -42,9 +42,10 @@ public final class DonutClientScreen extends Screen {
     private static final int SIDE_COL_GAP = 10;
 
     private boolean scannerEnabled = SusChunkScanner.isEnabled();
-    private boolean highlightChunks = true;
-    private boolean showThroughWalls = true;
-    private boolean amethystOnly = false;
+    private static boolean highlightChunks = true;
+    private static boolean showThroughWalls = true;
+    private static boolean amethystOnly = false;
+    private static boolean amethystDropdownOpen = false;
     private String activePage = SCANNER;
 
     private int left, top, panelW, panelH, navW, navStep, navItemH, mainX, mainW;
@@ -73,7 +74,7 @@ public final class DonutClientScreen extends Screen {
         statusY = top + 80;
         statusH = 136;
         controlsY = statusY + statusH + 10;
-        recentY = controlsY + 40;
+        recentY = controlsY + 40 + (amethystDropdownOpen ? 38 : 0);
     }
 
     @Override
@@ -268,11 +269,19 @@ public final class DonutClientScreen extends Screen {
 
     private void drawControls(DrawContext c, int mx, int my) {
         int gap = 10;
-        int w = (mainW - gap * 3) / 4;
+        int w = (mainW - gap * 2) / 3;
+        int highlightX = mainX + w + gap;
         drawToggle(c, mainX, controlsY, w, "◎", "Scanner", "Scanner", scannerEnabled, mx, my);
-        drawToggle(c, mainX + w + gap, controlsY, w, "◆", "Highlight Chunks", "Highlight", highlightChunks, mx, my);
+        drawToggle(c, highlightX, controlsY, w, "◆", "Highlight Chunks", "Highlight", highlightChunks, mx, my);
         drawToggle(c, mainX + (w + gap) * 2, controlsY, w, "▦", "Through-wall", "Walls", showThroughWalls, mx, my);
-        drawToggle(c, mainX + (w + gap) * 3, controlsY, w, "✦", "Amethyst Only", "Amethyst", amethystOnly, mx, my);
+
+        if (amethystDropdownOpen) {
+            int dropdownY = controlsY + 34;
+            boolean hover = mx >= highlightX && mx < highlightX + w && my >= dropdownY && my < dropdownY + 30;
+            roundBox(c, highlightX, dropdownY, w, 30, 5, hover ? 0xFF321626 : INNER, amethystOnly ? PINK_HOT : BORDER_DIM);
+            drawText(c, "✦ Amethyst Only", highlightX + 10, dropdownY + 11, TEXT);
+            drawSwitch(c, highlightX + w - 38, dropdownY + 8, amethystOnly);
+        }
     }
 
     private void drawToggle(DrawContext c, int x, int y, int w, String icon, String label, String shortLabel, boolean on, int mx, int my) {
@@ -568,20 +577,37 @@ public final class DonutClientScreen extends Screen {
             }
         }
 
-        if (SCANNER.equals(activePage) && mouseY >= controlsY && mouseY < controlsY + 30 && mouseX >= mainX && mouseX < mainX + mainW) {
+        if (SCANNER.equals(activePage)) {
             int gap = 10;
-            int w = (mainW - gap * 3) / 4;
-            int index = (int) ((mouseX - mainX) / (double) (w + gap));
-            double within = (mouseX - mainX) - index * (w + gap);
-            if (index <= 3 && within < w) {
-                if (index == 0) {
+            int w = (mainW - gap * 2) / 3;
+            int highlightX = mainX + w + gap;
+            int wallsX = mainX + (w + gap) * 2;
+
+            if (amethystDropdownOpen && mouseX >= highlightX && mouseX < highlightX + w
+                    && mouseY >= controlsY + 34 && mouseY < controlsY + 64) {
+                amethystOnly = !amethystOnly;
+                SusChunkRenderer.AmethystFilter.setEnabled(amethystOnly);
+                return true;
+            }
+
+            if (mouseY >= controlsY && mouseY < controlsY + 30 && mouseX >= mainX && mouseX < mainX + mainW) {
+                if (mouseX >= mainX && mouseX < mainX + w) {
                     scannerEnabled = !scannerEnabled;
                     SusChunkScanner.setEnabled(scannerEnabled);
+                    return true;
                 }
-                else if (index == 1) { highlightChunks = !highlightChunks; SusChunkRenderer.setHighlightEnabled(highlightChunks); }
-                else if (index == 2) { showThroughWalls = !showThroughWalls; SusChunkRenderer.setThroughWalls(showThroughWalls); }
-                else { amethystOnly = !amethystOnly; SusChunkRenderer.AmethystFilter.setEnabled(amethystOnly); }
-                return true;
+                if (mouseX >= highlightX && mouseX < highlightX + w) {
+                    highlightChunks = !highlightChunks;
+                    SusChunkRenderer.setHighlightEnabled(highlightChunks);
+                    amethystDropdownOpen = !amethystDropdownOpen;
+                    recentY = controlsY + 40 + (amethystDropdownOpen ? 38 : 0);
+                    return true;
+                }
+                if (mouseX >= wallsX && mouseX < wallsX + w) {
+                    showThroughWalls = !showThroughWalls;
+                    SusChunkRenderer.setThroughWalls(showThroughWalls);
+                    return true;
+                }
             }
         }
         return super.mouseClicked(click, doubleClick);
