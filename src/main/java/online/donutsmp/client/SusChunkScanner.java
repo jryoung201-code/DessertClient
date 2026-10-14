@@ -268,7 +268,7 @@ public final class SusChunkScanner {
                             || state.isOf(Blocks.MEDIUM_AMETHYST_BUD) || state.isOf(Blocks.SMALL_AMETHYST_BUD);
                     boolean containerBlock = state.isOf(Blocks.CHEST) || state.isOf(Blocks.TRAPPED_CHEST)
                             || state.isOf(Blocks.BARREL) || state.isOf(Blocks.DISPENSER)
-                            || state.isOf(Blocks.DROPPER);
+                            || state.isOf(Blocks.DROPPER) || state.isOf(Blocks.HOPPER);
                     boolean redstoneBlock = state.isOf(Blocks.OBSERVER) || state.isOf(Blocks.PISTON)
                             || state.isOf(Blocks.STICKY_PISTON) || state.isOf(Blocks.REDSTONE_WIRE);
                     boolean spawnerBlock = state.isOf(Blocks.SPAWNER);
@@ -319,16 +319,14 @@ public final class SusChunkScanner {
         }
         if (containers > 0) {
             score += Math.min(35, 12 + containers * 8);
-            clues.add("Container blocks (" + containers + ")");
+            clues.add("Storage/utility blocks (chests, barrels, hoppers, dispensers, droppers: " + containers + ")");
         }
         if (redstone >= 8) {
             score += Math.min(20, 5 + redstone);
             clues.add("Redstone machinery (" + redstone + ")");
         }
-        if (spawners > 0) {
-            score += 25;
-            clues.add("Spawner block");
-        }
+        // Spawners can generate naturally in dungeons, mineshafts, and other structures,
+        // so they are deliberately not treated as suspicious on their own.
         if (nonNaturalBlocks > 0) {
             score += Math.min(55, 40 + (nonNaturalBlocks - 1) * 5);
             clues.add("Non-natural utility blocks (" + nonNaturalBlocks + ")");
