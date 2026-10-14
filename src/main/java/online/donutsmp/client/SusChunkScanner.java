@@ -169,15 +169,12 @@ public final class SusChunkScanner {
         lastScanAt = System.currentTimeMillis();
 
         ChunkPos center = client.player.getChunkPos();
-        // A new player-centered scan window gets a fresh pass. Results are scoped
-        // to this window so moving around does not leave stale progress behind.
+        // Track the player-centered scan window for progress only. Do not clear
+        // overlay findings when the player moves; findings are invalidated by
+        // actual client chunk load/unload events instead.
         if (center.x != centerChunkX || center.z != centerChunkZ) {
             centerChunkX = center.x;
             centerChunkZ = center.z;
-            SCANNED.clear();
-            FINDINGS.clear();
-            NOTIFIED.clear();
-            scannedChunks = 0;
             int radius = getEffectiveScanRadius(client);
             scanQueueSize = (radius * 2 + 1) * (radius * 2 + 1);
         }
