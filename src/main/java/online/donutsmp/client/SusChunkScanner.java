@@ -139,6 +139,23 @@ public final class SusChunkScanner {
         return scannedChunks;
     }
 
+    /** Invalidate a chunk when the client receives fresh chunk data. */
+    public static void onChunkLoaded(ChunkPos pos) {
+        invalidateChunk(pos);
+    }
+
+    /** Invalidate a chunk when it leaves the client's loaded chunk cache. */
+    public static void onChunkUnloaded(ChunkPos pos) {
+        invalidateChunk(pos);
+    }
+
+    private static void invalidateChunk(ChunkPos pos) {
+        long key = pos.toLong();
+        SCANNED.remove(key);
+        FINDINGS.remove(key);
+        NOTIFIED.remove(key);
+    }
+
     public static int getProgressPercent() {
         if (scanQueueSize <= 0) return enabled ? 0 : 100;
         return Math.min(100, scannedChunks * 100 / scanQueueSize);
