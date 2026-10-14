@@ -26,6 +26,7 @@ public final class DonutSMPClient implements ClientModInitializer {
         ));
 
         SusChunkRenderer.register();
+        SpawnerEsp.register();
 
         ClientChunkEvents.CHUNK_LOAD.register((world, chunk) ->
                 SusChunkScanner.onChunkLoaded(chunk.getPos()));
