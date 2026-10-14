@@ -89,6 +89,7 @@ public final class SusChunkRenderer {
             matrices.push();
             matrices.translate(-camera.x, -camera.y, -camera.z);
             try {
+                int rendered = 0;
                 for (SusChunkScanner.Finding finding : SusChunkScanner.getFindings()) {
                     if (!client.world.getRegistryKey().getValue().toString().equals(finding.dimension())) {
                         continue;
@@ -97,14 +98,36 @@ public final class SusChunkRenderer {
                         continue;
                     }
 
+                    // Avoid turning the view into a wall of overlapping chunk-sized boxes.
+                    // Only draw the strongest nearby findings; each box stays around the
+                    // detected clue height instead of spanning large vertical distances.
+                    int dx = finding.chunkX() - client.player.getChunkPos().x;
+                    int dz = finding.chunkZ() - client.player.getChunkPos().z;
+                    int viewRadius = Math.max(2, client.options.getClampedViewDistance());
+                    if (Math.abs(dx) > viewRadius || Math.abs(dz) > viewRadius) {
+                        continue;
+                    }
+                    if (rendered >= 12) {
+                        break;
+                    }
+
                     int x = finding.chunkX() << 4;
                     int z = finding.chunkZ() << 4;
-                    Box box = new Box(x, finding.minY(), z,
-                            x + 16, Math.max(finding.minY() + 1, finding.maxY()), z + 16);
+                    int minY = finding.minY();
+                    int maxY = Math.max(minY + 2, finding.maxY());
+                    // Clamp outline height so a chunk with clues at distant elevations
+                    // cannot produce a huge vertical cage.
+                    if (maxY - minY > 12) {
+                        int centerY = minY + (maxY - minY) / 2;
+                        minY = centerY - 6;
+                        maxY = centerY + 6;
+                    }
+                    Box box = new Box(x, minY, z, x + 16, maxY, z + 16);
                     int color = finding.hasAmethyst() ? 0xFFB847FF : 0xFFFF1F2E;
                     VertexRendering.drawOutline(
                             matrices, lines, VoxelShapes.cuboid(box),
-                            0.0, 0.0, 0.0, color, 2.0f);
+                            0.0, 0.0, 0.0, color, 1.5f);
+                    rendered++;
                 }
             } finally {
                 matrices.pop();
