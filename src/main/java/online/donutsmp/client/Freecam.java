@@ -5,7 +5,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.storage.ReadView;
+import net.minecraft.storage.WriteView;
 import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
@@ -57,8 +58,8 @@ public final class Freecam {
     private static final class Camera extends Entity {
         private Camera(World world) { super(EntityType.ARMOR_STAND, world); setNoGravity(true); noClip = true; setInvisible(true); }
         @Override protected void initDataTracker(net.minecraft.entity.data.DataTracker.Builder builder) {}
-        @Override protected void readCustomDataFromNbt(NbtCompound nbt) {}
-        @Override protected void writeCustomDataToNbt(NbtCompound nbt) {}
+        @Override protected void readCustomData(ReadView view) {}
+        @Override protected void writeCustomData(WriteView view) {}
         @Override public boolean shouldRender(double distance) { return false; }
     }
 }
