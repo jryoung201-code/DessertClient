@@ -79,7 +79,7 @@ public final class SpawnerEsp {
                 int drawn = 0;
                 for (BlockPos pos : new ArrayList<>(SPAWNERS)) {
                     if (pos.getSquaredDistance(client.player.getBlockPos()) > (double) renderDistance * 16 * renderDistance * 16) continue;
-                    VertexRendering.drawOutline(matrices, lines, VoxelShapes.fullCube().getBoundingBox().offset(pos),
+                    VertexRendering.drawOutline(matrices, lines, VoxelShapes.fullCube().offset(pos.getX(), pos.getY(), pos.getZ()),
                             0.0, 0.0, 0.0, getColor(), 2.0f);
                     if (++drawn >= 128) break;
                 }
