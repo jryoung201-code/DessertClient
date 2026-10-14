@@ -6,7 +6,6 @@ import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.MobSpawnerBlockEntity;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -72,7 +71,8 @@ public final class SpawnerEsp {
             if (matrices == null || consumers == null) return;
 
             Vec3d camera = client.gameRenderer.getCamera().getCameraPos();
-            VertexConsumer lines = consumers.getBuffer(RenderLayers.lines());
+            // Use the secondary block-outline layer so ESP outlines can remain visible behind blocks.
+            VertexConsumer lines = consumers.getBuffer(RenderLayers.secondaryBlockOutline());
             matrices.push();
             matrices.translate(-camera.x, -camera.y, -camera.z);
             try {
