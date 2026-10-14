@@ -325,8 +325,11 @@ public final class SusChunkScanner {
             score += Math.min(20, 5 + redstone);
             clues.add("Redstone machinery (" + redstone + ")");
         }
-        // Spawners can generate naturally in dungeons, mineshafts, and other structures,
-        // so they are deliberately not treated as suspicious on their own.
+        // On DonutSMP, spawners are not naturally generated, so flag them as a strong base clue.
+        if (spawners > 0) {
+            score += Math.min(55, 40 + (spawners - 1) * 5);
+            clues.add("Spawner (" + spawners + ")");
+        }
         if (nonNaturalBlocks > 0) {
             score += Math.min(55, 40 + (nonNaturalBlocks - 1) * 5);
             clues.add("Non-natural utility blocks (" + nonNaturalBlocks + ")");
