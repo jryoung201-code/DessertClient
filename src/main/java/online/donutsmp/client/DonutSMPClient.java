@@ -25,6 +25,7 @@ public final class DonutSMPClient implements ClientModInitializer {
                 KeyBinding.Category.MISC
         ));
 
+        ClientPreferences.load();
         SusChunkRenderer.register();
         SpawnerEsp.register();
         Freecam.register();

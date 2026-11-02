@@ -1,31 +1,20 @@
-# Dessert Client 🍩
+# Dessert Client 0.4.0
 
-**Dessert Client — DonutSMP Edition** is a client-side utility mod for **Minecraft Java 1.21.11** built with Fabric. It uses a sweet pink, cream, and chocolate visual theme.
+Fabric utility client for Minecraft Java 1.21.11. Requires Java 21, Fabric Loader 0.18.1+ and Fabric API. Mod Menu is optional.
 
-## Current prototype — v0.3.5
-- Press **Right Shift** in-game to open the Dessert Client screen.
-- Pink-themed interface with a sidebar (Dashboard, SUS Chunk Scanner, Money Tracker, Auction House, Waypoints, Player, World, Render, Utilities, Configs), rounded panels, and a donut logo. Only the scanner page has content so far; the others show a "coming soon" card.
-- Scanner page: status pill, scanner status card, suspicion scale, switch-style toggles (scanner, chunk highlighting, through-wall highlighting), and a recent-chunks table.
-- **Freecam:** detached camera with WASD movement, Space to rise, Left Shift to descend, mouse look, and adjustable speed (0.5–10.0). The local player stays in place, and the camera stops on death, disconnect, or world/player changes. It does not request chunks or alter server-side data.
-- **Spawner ESP:** separate UI page with an on/off toggle, adjustable 2–16 chunk render radius, and cycling outline colors. Outlines use the secondary block-outline render layer for through-wall visibility. It checks block entities only in already-loaded chunks and draws a capped number of nearby outlines.
-- Right-hand info box (FPS, ping, server, XYZ, nether/overworld coordinates, facing, biome, speed) and a keybinds box, shown when the window is wide enough. TPS shows `--` because the client cannot measure it. Only "Open GUI" reflects a real keybind; the other keybinds shown are placeholders.
-- Smooth suspicion color scale: red, orange, yellow, and green.
-- Spawner ESP is client-side and never requests chunk loads. Scanning is incremental and bounded to a small number of loaded chunks per scan tick. Results clear when the module is disabled, the world changes, or chunks unload.
-- The SUS scanner remains a separate prototype; its full live analysis is still under development.
+Press **Right Shift** (rebindable in Minecraft Controls) to open the control center. Escape closes it without pausing your game.
+
+- **Overview:** scanner, spawner and waypoint counts with quick actions.
+- **Modules:** search and toggle SUS Chunk Scanner, Spawner ESP and Freecam.
+- **Findings:** paginated chunk clues, heuristic scores and copyable block coordinates. Scores are clues, not proof of a base.
+- **Waypoints:** name and save the current location, copy coordinates or delete bookmarks. Bookmarks are local and separated by server/singleplayer save and dimension. Maximum 200 total.
+- **Tools:** copy XYZ, convert Overworld/Nether X/Z using the 8:1 ratio, or disable all modules.
+- **Settings:** notification threshold, ESP range/color, amethyst filter, camera speed, chunk highlights and through-wall rendering. Numeric settings cycle when clicked. Highlights and through-wall preferences persist; notifications retain their existing configuration. Module activation, ESP range/color, camera speed and amethyst filter are session settings.
+
+Freecam: WASD moves, Space rises, Left Shift descends; disable it to return. It stops on death, disconnect or world change. Scanners inspect already-loaded chunks only.
+
+Waypoints: `config/dessert-waypoints.json`. Render preferences: `config/dessert-render.properties`. Notifications: `config/dessert-client.properties`.
 
 ## Build
-Requirements: JDK 21 and Gradle.
 
-```sh
-gradle build
-```
-
-The mod JAR will be in `build/libs/`. Install Fabric Loader for Minecraft 1.21.11 and put the JAR in your `mods` folder. Fabric API is required; Mod Menu integration is included.
-
-## Notes
-The client cannot inspect blocks in chunks the server has not sent. Spawner ESP therefore only detects mob spawners present in currently loaded client chunks; it is not a guarantee that every spawner in the area has been found.
-
-## Branding
-- Name: **Dessert Client**
-- Theme: strawberry pink, cream, chocolate brown
-- Edition: DonutSMP
+Use Java 21 and Gradle 9.2: `gradle clean build`. Install the remapped JAR from `build/libs` (not the sources JAR). GitHub Actions builds pull requests and the overhaul branch; only main publishes releases.

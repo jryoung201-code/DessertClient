@@ -93,6 +93,7 @@ public final class SusChunkScanner {
     }
 
     public static int getNotificationThreshold() {
+        loadSettings();
         return notificationThreshold;
     }
 
