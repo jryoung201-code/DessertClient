@@ -8,6 +8,7 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.RenderSetup;
+import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.VertexRendering;
@@ -24,6 +25,8 @@ import java.util.Optional;
  * Fabric world-render event API.
  */
 public final class SusChunkRenderer {
+    private static long previewUntil;
+    public static void preview(){previewUntil=System.currentTimeMillis()+10000;}
     private static boolean highlightEnabled = true;
     private static boolean throughWalls = true;
 
@@ -58,6 +61,8 @@ public final class SusChunkRenderer {
             RenderSetup.builder(THROUGH_WALLS_PIPELINE).build()
     );
 
+    private static final VertexConsumerProvider.Immediate OVERLAY = VertexConsumerProvider.immediate(new BufferAllocator(262144));
+
     private SusChunkRenderer() {}
 
     public static void setHighlightEnabled(boolean enabled) {
@@ -71,13 +76,13 @@ public final class SusChunkRenderer {
     public static void register() {
         WorldRenderEvents.BEFORE_DEBUG_RENDER.register(context -> {
             MinecraftClient client = MinecraftClient.getInstance();
-            if (!highlightEnabled || !SusChunkScanner.isEnabled()
-                    || client.world == null || client.player == null) {
+            if (client.world == null || client.player == null ||
+                    ((!highlightEnabled || !SusChunkScanner.isEnabled()) && System.currentTimeMillis()>=previewUntil)) {
                 return;
             }
 
             MatrixStack matrices = context.matrices();
-            VertexConsumerProvider consumers = context.consumers();
+            VertexConsumerProvider.Immediate consumers = OVERLAY;
             if (matrices == null || consumers == null) {
                 return;
             }
@@ -87,8 +92,13 @@ public final class SusChunkRenderer {
                     throughWalls ? THROUGH_WALLS_LINES : RenderLayers.lines());
 
             matrices.push();
-            matrices.translate(-camera.x, -camera.y, -camera.z);
+
             try {
+                if(System.currentTimeMillis()<previewUntil){
+                    Box test=new Box(client.player.getBlockPos().add(3,0,0)).expand(.02);
+                    VertexRendering.drawOutline(matrices,lines,VoxelShapes.cuboid(test.offset(-camera.x,-camera.y,-camera.z)),0,0,0,0xFF62FFE0,3f);
+                }
+                if(!highlightEnabled || !SusChunkScanner.isEnabled())return;
                 int rendered = 0;
                 for (SusChunkScanner.Finding finding : SusChunkScanner.getFindings()) {
                     if (!client.world.getRegistryKey().getValue().toString().equals(finding.dimension())) {
@@ -112,7 +122,7 @@ public final class SusChunkRenderer {
                     Box box = new Box(finding.minX(), finding.minY(), finding.minZ(), finding.maxX(), finding.maxY(), finding.maxZ());
                     int color = finding.score() >= 10 ? 0xFFFF617D : finding.score() >= 6 ? 0xFFFFA15C : 0xFFFFDE78;
                     VertexRendering.drawOutline(
-                            matrices, lines, VoxelShapes.cuboid(box),
+                            matrices, lines, VoxelShapes.cuboid(box.offset(-camera.x,-camera.y,-camera.z)),
                             0.0, 0.0, 0.0, color, 1.5f);
                     rendered++;
                 }
@@ -120,12 +130,13 @@ public final class SusChunkRenderer {
                 for(var site:SusChunkScanner.getAmethystSites()){
                     if(site.count()<3 || amethystRendered>=24) continue;
                     Box box=new Box(site.minX(),site.minY(),site.minZ(),site.maxX(),site.maxY(),site.maxZ());
-                    VertexRendering.drawOutline(matrices,lines,VoxelShapes.cuboid(box),0,0,0,
+                    VertexRendering.drawOutline(matrices,lines,VoxelShapes.cuboid(box.offset(-camera.x,-camera.y,-camera.z)),0,0,0,
                         site.observedGrowth()>0?0xFF6DEBCE:0xFFBC7AFF,1.5f);
                     amethystRendered++;
                 }
             } finally {
                 matrices.pop();
+                consumers.draw(throughWalls ? THROUGH_WALLS_LINES : RenderLayers.lines());
             }
         });
     }

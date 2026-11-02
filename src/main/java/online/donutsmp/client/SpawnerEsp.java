@@ -14,6 +14,7 @@ import net.minecraft.client.render.RenderSetup;
 import net.minecraft.util.Identifier;
 
 import java.util.Optional;
+import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.VertexRendering;
@@ -70,6 +71,8 @@ public final class SpawnerEsp {
             RenderSetup.builder(THROUGH_WALLS_PIPELINE).build()
     );
 
+    private static final VertexConsumerProvider.Immediate OVERLAY = VertexConsumerProvider.immediate(new BufferAllocator(262144));
+
     private SpawnerEsp() {}
 
     public static boolean isEnabled() { return enabled; }
@@ -104,24 +107,25 @@ public final class SpawnerEsp {
             MinecraftClient client = MinecraftClient.getInstance();
             if (!enabled || client.world == null || client.player == null) return;
             MatrixStack matrices = context.matrices();
-            VertexConsumerProvider consumers = context.consumers();
+            VertexConsumerProvider.Immediate consumers = OVERLAY;
             if (matrices == null || consumers == null) return;
 
             Vec3d camera = client.gameRenderer.getCamera().getCameraPos();
             // Same explicit no-depth-test line layer used by SUS Chunk Finder.
             VertexConsumer lines = consumers.getBuffer(THROUGH_WALLS_LINES);
             matrices.push();
-            matrices.translate(-camera.x, -camera.y, -camera.z);
+
             try {
                 int drawn = 0;
                 for (BlockPos pos : new ArrayList<>(SPAWNERS)) {
                     if (pos.getSquaredDistance(client.player.getBlockPos()) > (double) renderDistance * 16 * renderDistance * 16) continue;
-                    VertexRendering.drawOutline(matrices, lines, VoxelShapes.fullCube().offset(pos.getX(), pos.getY(), pos.getZ()),
+                    VertexRendering.drawOutline(matrices, lines, VoxelShapes.fullCube().offset(pos.getX()-camera.x, pos.getY()-camera.y, pos.getZ()-camera.z),
                             0.0, 0.0, 0.0, getColor(), 2.0f);
                     if (++drawn >= 128) break;
                 }
             } finally {
                 matrices.pop();
+                consumers.draw(THROUGH_WALLS_LINES);
             }
         });
     }

@@ -1,4 +1,4 @@
-# Dessert Client 0.5.0
+# Dessert Client 0.5.1
 
 Minecraft Java 1.21.11 / Fabric Loader 0.18.1+ / Fabric API / Java 21. Mod Menu is optional. Replace the old client JAR; press **Right Shift** to open the control center.
 
@@ -39,12 +39,20 @@ A first snapshot establishes a baseline. Full reloads reset it. Changes are samp
 - Searchable toggles for SUS Chunk Finder, Spawner ESP and Freecam.
 - Local named waypoints, separated by server/save and dimension (200 total).
 - Copy XYZ, Overworld/Nether portal coordinate conversion, disable-all action.
-- Optional unbound keybinds for each module, saving a waypoint and disabling all modules; configure in Minecraft Controls.
+- Optional keybinds for each module, saving a waypoint and disabling all modules; configure in Minecraft Controls. Freecam defaults to F6; other optional shortcuts start unbound.
 - Saved rendering, ESP and camera preferences. Module activation resets each launch.
-- Freecam: WASD / Space / Left Shift; stops on death or world change.
+- Freecam: **F6** toggles it. Uses your configured movement / jump / sneak keys; sprint gives a 3x boost. Mouse look controls the camera, movement keys do not control your body, and attack/use/mining are blocked while detached. Camera movement pauses in menus or when unfocused. Stops on death, world change, mounting or another camera taking control. Restores your prior view. Server corrections and physics still apply to your player.
 
 Scanner settings: `config/dessert-scanner.properties`. Waypoints: `config/dessert-waypoints.json`. Rendering: `config/dessert-render.properties`.
 
 ## Build
 
 Java 21 and Gradle 9.2: `gradle clean build`. This also runs the dependency-free scoring regression checks. Install the remapped JAR from `build/libs`, not the sources JAR. GitHub Actions builds the overhaul branch and pull requests; only main publishes releases.
+
+## Highlight fixes and custom notifications (0.5.1)
+
+Chunk and spawner outlines now use dedicated render buffers that are explicitly drawn. Geometry is camera-relative to preserve precision at distant coordinates. Existing Highlights, Through Walls and Amethyst-only filters still apply. An above-threshold finding is needed for normal chunk highlights.
+
+Open **Alerts → Test outline (10s)** to draw a mint test cube three blocks east of your player; it works independently of the scanner and highlight switches. Look east to find it. This tests the render path without requiring a suspicious chunk.
+
+Open **Alerts → Customize notifications**. Edit the title/message, choose on-screen cards / chat / both, cycle accent colors, enable sound, set card duration (2–20s) and alert cooldown (10–600s), and press Save. Test previews the current settings. Supported literal placeholders: `{points}`, `{x}`, `{y}`, `{z}`, `{chunkX}`, `{chunkZ}`. Settings persist in `config/dessert-notifications.properties`. Scanner notification enable/threshold settings remain under Settings. Up to three cards appear in the lower-right corner. F1 hides the HUD. No packet/world-activity inference is added.

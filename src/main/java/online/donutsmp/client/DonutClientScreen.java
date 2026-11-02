@@ -13,7 +13,7 @@ import net.minecraft.world.World;
 public final class DonutClientScreen extends Screen {
     private static final int WINDOW=0xFF12121B, PINK=0xFFFF80B5, TEXT=0xFFF4F1FA, MUTED=0xFFA7A4BA;
     private static String page="Overview";
-    private static final String[] PAGES={"Overview","Modules","Findings","Amethyst","Waypoints","Tools","Settings"};
+    private static final String[] PAGES={"Overview","Modules","Findings","Amethyst","Waypoints","Tools","Settings","Alerts"};
     private int left,top,panelW,panelH,mainX,mainW,bodyY,offset;
     private String query="", notice="";
     private TextFieldWidget search;
@@ -29,7 +29,7 @@ public final class DonutClientScreen extends Screen {
     }
     private void rebuild(){
         clearChildren();moduleButtons.clear();
-        for(int i=0;i<PAGES.length;i++){String target=PAGES[i];button(target,left+12,top+62+i*Math.min(27,(panelH-72)/PAGES.length),100,()->{page=target;offset=0;query="";rebuild();});}
+        for(int i=0;i<PAGES.length;i++){String target=PAGES[i];button(target,left+12,top+52+i*Math.min(27,(panelH-60)/PAGES.length),100,()->{page=target;offset=0;query="";rebuild();});}
         button("Close",left+panelW-58,top+13,44,this::close);
         switch(page){
             case "Overview" -> overview();
@@ -39,6 +39,7 @@ public final class DonutClientScreen extends Screen {
             case "Waypoints" -> waypoints();
             case "Tools" -> tools();
             case "Settings" -> settings();
+            case "Alerts" -> {resetRows();button("Customize notifications",mainX+12,bodyY+12,mainW-24,()->client.setScreen(new NotificationSettingsScreen(this)));button("Test outline (10s)",mainX+12,bodyY+42,mainW-24,()->{SusChunkRenderer.preview();close();});line("Test cube: 3 blocks east of your player.","",bodyY+72);}
         }
     }
     private void line(String label,String value,int y){rows.add(new Row(label,value,y));}
@@ -48,7 +49,7 @@ public final class DonutClientScreen extends Screen {
     private int capacity(int rowHeight){return Math.max(1,(top+panelH-54-bodyY)/rowHeight);}
     private void overview(){
         resetRows();
-        line("YOUR WORKSPACE","Dessert Client 0.5.0",bodyY+12);
+        line("YOUR WORKSPACE","Dessert Client 0.5.1",bodyY+12);
         if(capacity(24)>3)line("Scanner",SusChunkScanner.isEnabled()?"Running":"Paused",bodyY+42);
         if(capacity(24)>3)line("Chunks analyzed",String.valueOf(SusChunkScanner.getScannedChunks()),bodyY+64);
         if(capacity(24)>4)line("Suspicious findings",String.valueOf(SusChunkScanner.getFindingCount()),bodyY+86);
@@ -83,7 +84,7 @@ public final class DonutClientScreen extends Screen {
             var b=new SweetButton(on?"Disable":"Enable",mainX+mainW-84,y+3,72,()->{
                 if(index==0)SusChunkScanner.setEnabled(!SusChunkScanner.isEnabled());
                 if(index==1)SpawnerEsp.setEnabled(!SpawnerEsp.isEnabled());
-                if(index==2){if(Freecam.isEnabled())Freecam.setEnabled(false,client);else if(Freecam.setEnabled(true,client)){close();return;}}
+                if(index==2){if(Freecam.isEnabled())Freecam.setEnabled(false,client);else if(Freecam.setEnabled(true,client)){close();return;}else notice="Join a world and leave your vehicle first.";}
                 rebuild();
             });
             addDrawableChild(b);moduleButtons.add(b);y+=52;
@@ -188,7 +189,7 @@ public final class DonutClientScreen extends Screen {
         roundFill(c,left,top,panelW,panelH,10,WINDOW);
         roundFill(c,left+6,top+6,112,panelH-12,7,0xFF191824);
         donut(c,left+28,top+28,10,0xFF191824);
-        text(c,"DESSERT",left+44,top+20,PINK);text(c,"CLIENT / 0.5",left+44,top+33,MUTED);
+        text(c,"DESSERT",left+44,top+20,PINK);text(c,"CLIENT / 0.5.1",left+44,top+33,MUTED);
         text(c,page.toUpperCase(Locale.ROOT),mainX+12,top+23,TEXT);
         text(c,textRenderer.trimToWidth("Your world. Your workspace.",mainW-24),mainX+12,top+42,MUTED);
         c.fill(mainX+12,top+63,left+panelW-12,top+64,0xFF302C40);

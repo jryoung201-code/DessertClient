@@ -94,12 +94,12 @@ public final class SusChunkScanner {
             String dim=world.getRegistryKey().getValue().toString();
             var f=new Finding(job.chunk.getPos().x,job.chunk.getPos().z,result.points(),String.join(" | ",result.details()),now,dim,0,job.amethyst>0,job.y0,job.y1+1,job.x0,job.z0,job.x1+1,job.z1+1,result.details());
             FINDINGS.put(key,f);
-            if(notifications&&f.score()>=Math.max(threshold,notifyThreshold)&&now-ALERTS.getOrDefault(key,0L)>=300000){
-                ALERTS.put(key,now);mc.player.sendMessage(Text.literal(String.format(Locale.ROOT,"Dessert » %.2f evidence points at %d %d %d (not a confirmed base)",f.score(),f.targetX(),f.targetY(),f.targetZ())),false);
+            if(notifications&&f.score()>=Math.max(threshold,notifyThreshold)&&now-ALERTS.getOrDefault(key,0L)>=ClientNotifications.cooldownMillis()){
+                ALERTS.put(key,now);ClientNotifications.finding(f);
             }
         }else FINDINGS.remove(key);
         while(FINDINGS.size()>MAX_RESULTS){Long weak=FINDINGS.entrySet().stream().min(Comparator.comparingDouble(e->e.getValue().score())).orElseThrow().getKey();FINDINGS.remove(weak);}
-        ALERTS.entrySet().removeIf(e->now-e.getValue()>300000);
+        ALERTS.entrySet().removeIf(e->now-e.getValue()>ClientNotifications.cooldownMillis());
     }
     private static final class Job {
         final Chunk chunk;final int bottom,height;int cursor;

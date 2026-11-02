@@ -19,6 +19,8 @@ public final class DonutSMPClient implements ClientModInitializer {
         return openClientKey == null ? "Right Shift" : openClientKey.getBoundKeyLocalizedText().getString();
     }
 
+    public static String cameraKeyLabel(){return cameraKey==null?"F6":cameraKey.getBoundKeyLocalizedText().getString();}
+
     @Override
     public void onInitializeClient() {
         openClientKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
@@ -28,12 +30,13 @@ public final class DonutSMPClient implements ClientModInitializer {
                 KeyBinding.Category.MISC
         ));
 
-        scannerKey=shortcut("scanner");spawnerKey=shortcut("spawners");cameraKey=shortcut("freecam");
+        scannerKey=shortcut("scanner");spawnerKey=shortcut("spawners");cameraKey=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.donutsmpclient.freecam",InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_F6,KeyBinding.Category.MISC));
         bookmarkKey=shortcut("waypoint");disableKey=shortcut("disable_all");
         ClientPreferences.load();
         SusChunkRenderer.register();
         SpawnerEsp.register();
         Freecam.register();
+        ClientNotifications.register();
 
         ClientChunkEvents.CHUNK_LOAD.register((world, chunk) ->
                 SusChunkScanner.onChunkLoaded(chunk.getPos()));
