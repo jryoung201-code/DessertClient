@@ -158,6 +158,7 @@ public final class DonutClientScreen extends Screen {
                     case 6 -> {ClientPreferences.highlight=!ClientPreferences.highlight;SusChunkRenderer.setHighlightEnabled(ClientPreferences.highlight);ClientPreferences.save();}
                     case 7 -> {ClientPreferences.walls=!ClientPreferences.walls;SusChunkRenderer.setThroughWalls(ClientPreferences.walls);ClientPreferences.save();}
                 }
+                ClientPreferences.save();
                 rebuild();
             });
         }

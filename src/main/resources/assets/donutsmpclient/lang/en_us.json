@@ -1,0 +1,8 @@
+{
+  "key.donutsmpclient.open": "Dessert: Open control center",
+  "key.donutsmpclient.scanner": "Dessert: Toggle scanner",
+  "key.donutsmpclient.spawners": "Dessert: Toggle Spawner ESP",
+  "key.donutsmpclient.freecam": "Dessert: Toggle Freecam",
+  "key.donutsmpclient.waypoint": "Dessert: Save waypoint",
+  "key.donutsmpclient.disable_all": "Dessert: Disable all modules"
+}

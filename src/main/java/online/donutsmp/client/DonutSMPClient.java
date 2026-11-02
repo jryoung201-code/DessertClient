@@ -10,6 +10,9 @@ import org.lwjgl.glfw.GLFW;
 
 public final class DonutSMPClient implements ClientModInitializer {
     private static KeyBinding openClientKey;
+    private static KeyBinding scannerKey,spawnerKey,cameraKey,bookmarkKey,disableKey;
+    private static KeyBinding shortcut(String name){return KeyBindingHelper.registerKeyBinding(new KeyBinding("key.donutsmpclient."+name,InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_UNKNOWN,KeyBinding.Category.MISC));}
+
 
     /** Display name of the key currently bound to "open Dessert Client" (e.g. "Right Shift"). */
     public static String openKeyLabel() {
@@ -25,6 +28,8 @@ public final class DonutSMPClient implements ClientModInitializer {
                 KeyBinding.Category.MISC
         ));
 
+        scannerKey=shortcut("scanner");spawnerKey=shortcut("spawners");cameraKey=shortcut("freecam");
+        bookmarkKey=shortcut("waypoint");disableKey=shortcut("disable_all");
         ClientPreferences.load();
         SusChunkRenderer.register();
         SpawnerEsp.register();
@@ -37,6 +42,16 @@ public final class DonutSMPClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             SusChunkScanner.tick(client);
+            while(scannerKey.wasPressed())if(client.currentScreen==null)SusChunkScanner.setEnabled(!SusChunkScanner.isEnabled());
+            while(spawnerKey.wasPressed())if(client.currentScreen==null)SpawnerEsp.setEnabled(!SpawnerEsp.isEnabled());
+            while(cameraKey.wasPressed())if(client.currentScreen==null)Freecam.setEnabled(!Freecam.isEnabled(),client);
+            while(bookmarkKey.wasPressed())if(client.currentScreen==null&&client.player!=null){
+                boolean saved=ClientWorkspace.add("Waypoint");
+                client.player.sendMessage(net.minecraft.text.Text.literal(saved?"Dessert: waypoint saved.":"Dessert: could not save waypoint."),true);
+            }
+            while(disableKey.wasPressed()){
+                SusChunkScanner.setEnabled(false);SpawnerEsp.setEnabled(false);Freecam.setEnabled(false,client);
+            }
             while (openClientKey.wasPressed()) {
                 if (client.currentScreen == null) {
                     client.setScreen(new DonutClientScreen());
