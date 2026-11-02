@@ -40,3 +40,18 @@ tasks.withType(JavaCompile).configureEach {
     options.release = 21
     options.encoding = "UTF-8"
 }
+
+// Dependency-free policy regression checks run as part of every build.
+sourceSets {
+    policyTest {
+        java.srcDir 'tests'
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += output + compileClasspath
+    }
+}
+tasks.register('policyTest', JavaExec) {
+    dependsOn tasks.named('policyTestClasses')
+    classpath = sourceSets.policyTest.runtimeClasspath
+    mainClass = 'EvidenceScoreTest'
+}
+tasks.named('check') { dependsOn tasks.named('policyTest') }

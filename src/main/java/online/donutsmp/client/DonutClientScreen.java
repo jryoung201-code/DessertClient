@@ -13,7 +13,7 @@ import net.minecraft.world.World;
 public final class DonutClientScreen extends Screen {
     private static final int WINDOW=0xFF12121B, PINK=0xFFFF80B5, TEXT=0xFFF4F1FA, MUTED=0xFFA7A4BA;
     private static String page="Overview";
-    private static final String[] PAGES={"Overview","Modules","Findings","Waypoints","Tools","Settings"};
+    private static final String[] PAGES={"Overview","Modules","Findings","Amethyst","Waypoints","Tools","Settings"};
     private int left,top,panelW,panelH,mainX,mainW,bodyY,offset;
     private String query="", notice="";
     private TextFieldWidget search;
@@ -29,12 +29,13 @@ public final class DonutClientScreen extends Screen {
     }
     private void rebuild(){
         clearChildren();moduleButtons.clear();
-        for(int i=0;i<PAGES.length;i++){String target=PAGES[i];button(target,left+12,top+62+i*Math.min(27,(panelH-72)/6),100,()->{page=target;offset=0;query="";rebuild();});}
+        for(int i=0;i<PAGES.length;i++){String target=PAGES[i];button(target,left+12,top+62+i*Math.min(27,(panelH-72)/PAGES.length),100,()->{page=target;offset=0;query="";rebuild();});}
         button("Close",left+panelW-58,top+13,44,this::close);
         switch(page){
             case "Overview" -> overview();
             case "Modules" -> modules();
             case "Findings" -> findings();
+            case "Amethyst" -> amethyst();
             case "Waypoints" -> waypoints();
             case "Tools" -> tools();
             case "Settings" -> settings();
@@ -47,7 +48,7 @@ public final class DonutClientScreen extends Screen {
     private int capacity(int rowHeight){return Math.max(1,(top+panelH-54-bodyY)/rowHeight);}
     private void overview(){
         resetRows();
-        line("YOUR WORKSPACE","Dessert Client 0.4.0",bodyY+12);
+        line("YOUR WORKSPACE","Dessert Client 0.5.0",bodyY+12);
         if(capacity(24)>3)line("Scanner",SusChunkScanner.isEnabled()?"Running":"Paused",bodyY+42);
         if(capacity(24)>3)line("Chunks analyzed",String.valueOf(SusChunkScanner.getScannedChunks()),bodyY+64);
         if(capacity(24)>4)line("Suspicious findings",String.valueOf(SusChunkScanner.getFindingCount()),bodyY+86);
@@ -67,7 +68,7 @@ public final class DonutClientScreen extends Screen {
     private final List<ButtonWidget> moduleButtons=new ArrayList<>();
     private void refreshModules(){
         for(var b:moduleButtons)remove(b);moduleButtons.clear();resetRows();
-        String[] names={"SUS Chunk Scanner","Spawner ESP","Freecam"};
+        String[] names={"SUS Chunk Finder","Spawner ESP","Freecam"};
         String[] descriptions={"Analyze loaded chunks for unusual patterns","Outline spawners in loaded chunks","Explore with a detached camera"};
         int y=bodyY+40;
         int shown=0;
@@ -97,13 +98,28 @@ public final class DonutClientScreen extends Screen {
 
     }
     private void findings(){
-        resetRows();var found=SusChunkScanner.getFindings();int count=capacity(40);pager(found.size(),count);
-        if(found.isEmpty())line("No findings yet. Enable the scanner in Modules.","",bodyY+16);
+        resetRows();var found=SusChunkScanner.getFindings();int count=Math.max(1,capacity(44)-1);pager(found.size(),count);
+        button("Refresh",mainX+12,bodyY+4,64,this::rebuild);
+        button("Rescan",mainX+82,bodyY+4,64,()->{SusChunkScanner.rescan();notice="Queued loaded chunks for a fresh scan.";rebuild();});
+        if(found.isEmpty())line("No chunks exceed the flag threshold. Enable the finder in Modules.","",bodyY+40);
         for(int i=offset;i<Math.min(found.size(),offset+count);i++){
-            var f=found.get(i);int y=bodyY+8+(i-offset)*40;
-            line("Chunk "+f.chunkX()+", "+f.chunkZ()+"  |  "+f.score()+"/100","",y);
-            line(f.clue(),"",y+14);
-            button("Copy",mainX+mainW-62,y,50,()->copy(((f.chunkX()<<4)+8)+" ~ "+((f.chunkZ()<<4)+8)));
+            var f=found.get(i);int y=bodyY+34+(i-offset)*44;
+            line("Chunk "+f.chunkX()+", "+f.chunkZ()+" | "+String.format(Locale.ROOT,"%.2f pts",f.score()),"",y);
+            line("XYZ "+f.targetX()+" "+f.targetY()+" "+f.targetZ(),"",y+14);
+            button("Details",mainX+mainW-66,y,54,()->client.setScreen(new FindingDetailsScreen(this,f)));
+        }
+    }
+    private void amethyst(){
+        resetRows();var sites=SusChunkScanner.getAmethystSites().stream().filter(site->site.count()>=3).toList();
+        int count=Math.max(1,capacity(44)-1);pager(sites.size(),count);
+        button("Refresh",mainX+12,bodyY+4,64,this::rebuild);
+        if(sites.isEmpty())line("No amethyst groups yet. Enable the finder to scan.","",bodyY+40);
+        for(int i=offset;i<Math.min(sites.size(),offset+count);i++){
+            var site=sites.get(i);int y=bodyY+34+(i-offset)*44;
+            int x=site.minX()+(site.maxX()-site.minX())/2,z=site.minZ()+(site.maxZ()-site.minZ())/2,sy=site.minY()+(site.maxY()-site.minY())/2;
+            line(site.count()+" amethyst blocks | "+site.observedGrowth()+" growth changes","",y);
+            line(x+" "+sy+" "+z,"",y+14);
+            button("Copy",mainX+mainW-62,y,50,()->copy(x+" "+sy+" "+z));
         }
     }
     private void savePoint(String name){
@@ -141,22 +157,24 @@ public final class DonutClientScreen extends Screen {
     private void settings(){
         resetRows();
         String[] labels={"Notifications: "+(SusChunkScanner.areNotificationsEnabled()?"ON":"OFF"),
-            "Threshold: "+SusChunkScanner.getNotificationThreshold()+"/100", "ESP distance: "+SpawnerEsp.getRenderDistance()+" chunks", "Cycle ESP color",
+            "Alert: "+SusChunkScanner.getNotificationThreshold()+" pts", "ESP distance: "+SpawnerEsp.getRenderDistance()+" chunks", "Cycle ESP color",
             "Amethyst only: "+SusChunkRenderer.AmethystFilter.isEnabled(), "Camera speed: "+String.format(Locale.ROOT,"%.1f",Freecam.getSpeed()),
-            "Chunk highlights: "+ClientPreferences.highlight, "Through walls: "+ClientPreferences.walls};
+            "Chunk highlights: "+ClientPreferences.highlight, "Through walls: "+ClientPreferences.walls,
+            "Flag: "+SusChunkScanner.getFlagThreshold()+" pts"};
         int count=capacity(30);pager(labels.length,count);
         for(int i=offset;i<Math.min(labels.length,offset+count);i++){
             final int id=i;int y=bodyY+8+(i-offset)*30;
             button(labels[i],mainX+12,y,mainW-24,()->{
                 switch(id){
                     case 0 -> SusChunkScanner.setNotificationsEnabled(!SusChunkScanner.areNotificationsEnabled());
-                    case 1 -> SusChunkScanner.setNotificationThreshold(SusChunkScanner.getNotificationThreshold()>=100?15:SusChunkScanner.getNotificationThreshold()+5);
+                    case 1 -> SusChunkScanner.setNotificationThreshold(SusChunkScanner.getNotificationThreshold()>=30?.5:SusChunkScanner.getNotificationThreshold()+.5);
                     case 2 -> SpawnerEsp.adjustRenderDistance(SpawnerEsp.getRenderDistance()>=16?-14:2);
                     case 3 -> SpawnerEsp.cycleColor();
                     case 4 -> SusChunkRenderer.AmethystFilter.setEnabled(!SusChunkRenderer.AmethystFilter.isEnabled());
                     case 5 -> Freecam.adjustSpeed(Freecam.getSpeed()>=10?-9.5:0.5);
                     case 6 -> {ClientPreferences.highlight=!ClientPreferences.highlight;SusChunkRenderer.setHighlightEnabled(ClientPreferences.highlight);ClientPreferences.save();}
                     case 7 -> {ClientPreferences.walls=!ClientPreferences.walls;SusChunkRenderer.setThroughWalls(ClientPreferences.walls);ClientPreferences.save();}
+                    case 8 -> SusChunkScanner.setFlagThreshold(SusChunkScanner.getFlagThreshold()>=30?.5:SusChunkScanner.getFlagThreshold()+.5);
                 }
                 ClientPreferences.save();
                 rebuild();
@@ -170,7 +188,7 @@ public final class DonutClientScreen extends Screen {
         roundFill(c,left,top,panelW,panelH,10,WINDOW);
         roundFill(c,left+6,top+6,112,panelH-12,7,0xFF191824);
         donut(c,left+28,top+28,10,0xFF191824);
-        text(c,"DESSERT",left+44,top+20,PINK);text(c,"CLIENT / 0.4",left+44,top+33,MUTED);
+        text(c,"DESSERT",left+44,top+20,PINK);text(c,"CLIENT / 0.5",left+44,top+33,MUTED);
         text(c,page.toUpperCase(Locale.ROOT),mainX+12,top+23,TEXT);
         text(c,textRenderer.trimToWidth("Your world. Your workspace.",mainW-24),mainX+12,top+42,MUTED);
         c.fill(mainX+12,top+63,left+panelW-12,top+64,0xFF302C40);

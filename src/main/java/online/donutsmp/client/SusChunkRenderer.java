@@ -94,9 +94,7 @@ public final class SusChunkRenderer {
                     if (!client.world.getRegistryKey().getValue().toString().equals(finding.dimension())) {
                         continue;
                     }
-                    if (AmethystFilter.isEnabled() && !finding.hasAmethyst()) {
-                        continue;
-                    }
+                    if (AmethystFilter.isEnabled()) continue;
 
                     // Avoid turning the view into a wall of overlapping chunk-sized boxes.
                     // Only draw the strongest nearby findings; each box stays around the
@@ -111,23 +109,20 @@ public final class SusChunkRenderer {
                         break;
                     }
 
-                    int x = finding.chunkX() << 4;
-                    int z = finding.chunkZ() << 4;
-                    int minY = finding.minY();
-                    int maxY = Math.max(minY + 2, finding.maxY());
-                    // Clamp outline height so a chunk with clues at distant elevations
-                    // cannot produce a huge vertical cage.
-                    if (maxY - minY > 12) {
-                        int centerY = minY + (maxY - minY) / 2;
-                        minY = centerY - 6;
-                        maxY = centerY + 6;
-                    }
-                    Box box = new Box(x, minY, z, x + 16, maxY, z + 16);
-                    int color = finding.hasAmethyst() ? 0xFFB847FF : 0xFFFF1F2E;
+                    Box box = new Box(finding.minX(), finding.minY(), finding.minZ(), finding.maxX(), finding.maxY(), finding.maxZ());
+                    int color = finding.score() >= 10 ? 0xFFFF617D : finding.score() >= 6 ? 0xFFFFA15C : 0xFFFFDE78;
                     VertexRendering.drawOutline(
                             matrices, lines, VoxelShapes.cuboid(box),
                             0.0, 0.0, 0.0, color, 1.5f);
                     rendered++;
+                }
+                int amethystRendered=0;
+                for(var site:SusChunkScanner.getAmethystSites()){
+                    if(site.count()<3 || amethystRendered>=24) continue;
+                    Box box=new Box(site.minX(),site.minY(),site.minZ(),site.maxX(),site.maxY(),site.maxZ());
+                    VertexRendering.drawOutline(matrices,lines,VoxelShapes.cuboid(box),0,0,0,
+                        site.observedGrowth()>0?0xFF6DEBCE:0xFFBC7AFF,1.5f);
+                    amethystRendered++;
                 }
             } finally {
                 matrices.pop();
