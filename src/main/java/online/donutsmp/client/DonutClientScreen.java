@@ -192,8 +192,8 @@ public final class DonutClientScreen extends Screen {
         super.render(c,mx,my,delta);
     }
     private final class SweetButton extends ButtonWidget {
-        SweetButton(String label,int x,int y,int w,Runnable action){super(x,y,w,20,Text.literal(label),b->action.run(),DEFAULT_NARRATION_SUPPLIER);}
-        @Override protected void renderWidget(DrawContext c,int mx,int my,float delta){
+        SweetButton(String label,int x,int y,int w,Runnable action){super(x,y,w,20,net.minecraft.text.Text.literal(label),b->action.run(),DEFAULT_NARRATION_SUPPLIER);}
+        @Override protected void drawIcon(DrawContext c,int mx,int my,float delta){
             boolean selected=getMessage().getString().equals(page);
             boolean hot=isHovered()||isFocused();
             roundBox(c,getX(),getY(),getWidth(),getHeight(),5,
