@@ -25,11 +25,11 @@ public final class DonutClientScreen extends Screen {
         rebuild();
     }
     private void button(String label,int x,int y,int w,Runnable action){
-        addDrawableChild(ButtonWidget.builder(Text.literal(label),b->action.run()).dimensions(x,y,w,20).build());
+        addDrawableChild(new SweetButton(label,x,y,w,action));
     }
     private void rebuild(){
         clearChildren();moduleButtons.clear();
-        for(int i=0;i<PAGES.length;i++){String target=PAGES[i];button(target,left+12,top+68+i*27,100,()->{page=target;offset=0;query="";rebuild();});}
+        for(int i=0;i<PAGES.length;i++){String target=PAGES[i];button(target,left+12,top+62+i*Math.min(27,(panelH-72)/6),100,()->{page=target;offset=0;query="";rebuild();});}
         button("Close",left+panelW-58,top+13,44,this::close);
         switch(page){
             case "Overview" -> overview();
@@ -63,7 +63,7 @@ public final class DonutClientScreen extends Screen {
         search.setMaxLength(60);search.setText(query);search.setPlaceholder(Text.literal("Search modules..."));
         search.setChangedListener(v->{query=v;offset=0;rebuildModuleSearch();});addDrawableChild(search);refreshModules();
     }
-    private void rebuildModuleSearch(){String value=query;rebuild();search.setText(value);setFocused(search);}
+    private void rebuildModuleSearch(){int cursor=search.getCursor();rebuild();search.setCursor(cursor,false);setFocused(search);}
     private final List<ButtonWidget> moduleButtons=new ArrayList<>();
     private void refreshModules(){
         for(var b:moduleButtons)remove(b);moduleButtons.clear();resetRows();
@@ -79,12 +79,12 @@ public final class DonutClientScreen extends Screen {
             final int index=i; boolean on=i==0?SusChunkScanner.isEnabled():i==1?SpawnerEsp.isEnabled():Freecam.isEnabled();
             line(names[i],on?"ON":"OFF",y+7);
             if(mainW>390)line(descriptions[i],"",y+23);
-            var b=ButtonWidget.builder(Text.literal(on?"Disable":"Enable"),w->{
+            var b=new SweetButton(on?"Disable":"Enable",mainX+mainW-84,y+3,72,()->{
                 if(index==0)SusChunkScanner.setEnabled(!SusChunkScanner.isEnabled());
                 if(index==1)SpawnerEsp.setEnabled(!SpawnerEsp.isEnabled());
                 if(index==2){if(Freecam.isEnabled())Freecam.setEnabled(false,client);else if(Freecam.setEnabled(true,client)){close();return;}}
                 rebuild();
-            }).dimensions(mainX+mainW-84,y+3,72,20).build();
+            });
             addDrawableChild(b);moduleButtons.add(b);y+=52;
         }
         if(rows.isEmpty())line("No modules match your search","",bodyY+50);
@@ -171,17 +171,35 @@ public final class DonutClientScreen extends Screen {
         donut(c,left+28,top+28,10,0xFF191824);
         text(c,"DESSERT",left+44,top+20,PINK);text(c,"CLIENT / 0.4",left+44,top+33,MUTED);
         text(c,page.toUpperCase(Locale.ROOT),mainX+12,top+23,TEXT);
-        text(c,"Your world. Your workspace.",mainX+12,top+42,MUTED);
+        text(c,textRenderer.trimToWidth("Your world. Your workspace.",mainW-24),mainX+12,top+42,MUTED);
         c.fill(mainX+12,top+63,left+panelW-12,top+64,0xFF302C40);
+        roundFill(c,mainX,bodyY,mainW,panelH-130,7,0xFF181722);
         c.enableScissor(mainX,bodyY,mainX+mainW,top+panelH-44);
         for(var r:rows){
-            int labelWidth=r.value().isEmpty()?mainW-100:Math.max(50,mainW-150);
+            int labelWidth=r.value().isEmpty()?mainW-100:Math.max(30,mainW-180);
             text(c,textRenderer.trimToWidth(r.label(),labelWidth),mainX+12,r.y(),MUTED);
-            if(!r.value().isEmpty())text(c,textRenderer.trimToWidth(r.value(),130),mainX+mainW-142,r.y(),PINK);
+            String value=switch(r.label()){
+                case "Chunks analyzed" -> String.valueOf(SusChunkScanner.getScannedChunks());
+                case "Suspicious findings" -> String.valueOf(SusChunkScanner.getFindingCount());
+                case "Loaded spawners" -> String.valueOf(SpawnerEsp.getSpawnerCount());
+                default -> r.value();
+            };
+            if(!value.isEmpty()){String fitted=textRenderer.trimToWidth(value,Math.min(150,mainW/2));text(c,fitted,mainX+mainW-12-textRenderer.getWidth(fitted),r.y(),PINK);}
         }
         c.disableScissor();
         text(c,textRenderer.trimToWidth(notice.isEmpty()?"Open: "+DonutSMPClient.openKeyLabel()+"  |  Esc: close":notice,mainW-24),mainX+12,top+panelH-16,PINK);
         super.render(c,mx,my,delta);
+    }
+    private final class SweetButton extends ButtonWidget {
+        SweetButton(String label,int x,int y,int w,Runnable action){super(x,y,w,20,Text.literal(label),b->action.run(),DEFAULT_NARRATION_SUPPLIER);}
+        @Override protected void renderWidget(DrawContext c,int mx,int my,float delta){
+            boolean selected=getMessage().getString().equals(page);
+            boolean hot=isHovered()||isFocused();
+            roundBox(c,getX(),getY(),getWidth(),getHeight(),5,
+                selected?0xFF512C46:hot?0xFF352C40:0xFF211F2E,selected||hot?PINK:0xFF393348);
+            String label=textRenderer.trimToWidth(getMessage().getString(),getWidth()-12);
+            text(c,label,getX()+(getWidth()-textRenderer.getWidth(label))/2,getY()+6,selected||hot?TEXT:MUTED);
+        }
     }
     private void text(DrawContext c,String s,int x,int y,int color){c.drawText(textRenderer,s,x,y,color,false);}
     @Override public boolean shouldPause(){return false;}
