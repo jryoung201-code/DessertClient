@@ -1,4 +1,4 @@
-# Dessert Client 0.5.1
+# Dessert Client 0.6.0
 
 Minecraft Java 1.21.11 / Fabric Loader 0.18.1+ / Fabric API / Java 21. Mod Menu is optional. Replace the old client JAR; press **Right Shift** to open the control center.
 
@@ -56,3 +56,13 @@ Chunk and spawner outlines now use dedicated render buffers that are explicitly 
 Open **Alerts → Test outline (10s)** to draw a mint test cube three blocks east of your player; it works independently of the scanner and highlight switches. Look east to find it. This tests the render path without requiring a suspicious chunk.
 
 Open **Alerts → Customize notifications**. Edit the title/message, choose on-screen cards / chat / both, cycle accent colors, enable sound, set card duration (2–20s) and alert cooldown (10–600s), and press Save. Test previews the current settings. Supported literal placeholders: `{points}`, `{x}`, `{y}`, `{z}`, `{chunkX}`, `{chunkZ}`. Settings persist in `config/dessert-notifications.properties`. Scanner notification enable/threshold settings remain under Settings. Up to three cards appear in the lower-right corner. F1 hides the HUD. No packet/world-activity inference is added.
+
+## Donkey Cycle (experimental, 0.6.0)
+
+A one-attempt automation based on the supplied recording. **Duplication has not been reproduced or verified.** The client remains Fabric 1.21.11. A server accepting that client via protocol translation does not guarantee the server has the behavior shown in the recording. The module cannot establish the exact remote Paper build.
+
+Open **Modules → Donkey Cycle**, or **F7**. Put test items in a tamed donkey/mule's chest first, with enough empty player-inventory slots (one per occupied storage slot). Ride it or look at it within five blocks, then start. The module mounts if needed, opens the inventory, quick-moves storage stacks at bounded intervals, dismounts, waits for the connection timeout, then optionally reconnects **once** to the same server. It does not drop items or walk your player away. It does not loop, re-enable itself after login, or claim success merely because the cycle finishes. Any missing movement or timing requirements of a particular server may prevent the recorded effect.
+
+The narrow outbound filter is scoped to the original connection and has a hard 90-second expiry. It affects the five packet types selected in the recording while the attempt is active; login traffic and subsequent connections are not filtered. Unexpected inventory changes, death, changed worlds, unavailable mounts, failed transfers and local timeouts stop the attempt. Disabling all modules or pressing **F7** stops it and cancels any pending reconnect. Leaving the disconnect screen also cancels reconnect. Existing custom F7 assignments may require rebinding in Minecraft Controls.
+
+Use expendable test items: the real item transfers are normal server actions and are not undone by Stop. Runtime behavior and server-side duplication remain unverified; only compilation, packaged selectors and the existing regression tests are validated.

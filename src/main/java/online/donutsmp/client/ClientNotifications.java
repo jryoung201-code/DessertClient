@@ -43,6 +43,7 @@ public final class ClientNotifications {
                 int progress=(int)((w-3)*Math.max(0,(card.expires-now)/(double)(card.expires-card.created)));
                 c.fill(x+3,y+h-7,x+3+progress,y+h-5,color());y-=6;
             }
+            if(DonkeyCycle.active())c.drawText(mc.textRenderer,"DONKEY CYCLE: "+DonkeyCycle.stage()+" | F7 to stop",10,24,0xFFFFC66B,true);
             if(Freecam.isEnabled()){
                 String status="FREECAM | "+String.format(Locale.ROOT,"%.1fx",Freecam.getSpeed())+" | "+DonutSMPClient.cameraKeyLabel()+" to return";
                 c.drawText(mc.textRenderer,status,10,10,0xFF66FFE0,true);

@@ -2,6 +2,14 @@
   "required": true,
   "package": "online.donutsmp.client.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": ["FreecamEntityMixin", "FreecamInputMixin", "FreecamInteractionMixin"],
-  "injectors": {"defaultRequire": 1}
+  "client": [
+    "FreecamEntityMixin",
+    "FreecamInputMixin",
+    "FreecamInteractionMixin",
+    "MountInventoryAccessor",
+    "DonkeyConnectionMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
 }

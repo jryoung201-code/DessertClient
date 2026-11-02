@@ -49,7 +49,7 @@ public final class DonutClientScreen extends Screen {
     private int capacity(int rowHeight){return Math.max(1,(top+panelH-54-bodyY)/rowHeight);}
     private void overview(){
         resetRows();
-        line("YOUR WORKSPACE","Dessert Client 0.5.1",bodyY+12);
+        line("YOUR WORKSPACE","Dessert Client 0.6.0",bodyY+12);
         if(capacity(24)>3)line("Scanner",SusChunkScanner.isEnabled()?"Running":"Paused",bodyY+42);
         if(capacity(24)>3)line("Chunks analyzed",String.valueOf(SusChunkScanner.getScannedChunks()),bodyY+64);
         if(capacity(24)>4)line("Suspicious findings",String.valueOf(SusChunkScanner.getFindingCount()),bodyY+86);
@@ -69,8 +69,8 @@ public final class DonutClientScreen extends Screen {
     private final List<ButtonWidget> moduleButtons=new ArrayList<>();
     private void refreshModules(){
         for(var b:moduleButtons)remove(b);moduleButtons.clear();resetRows();
-        String[] names={"SUS Chunk Finder","Spawner ESP","Freecam"};
-        String[] descriptions={"Analyze loaded chunks for unusual patterns","Outline spawners in loaded chunks","Explore with a detached camera"};
+        String[] names={"SUS Chunk Finder","Spawner ESP","Freecam","Donkey Cycle"};
+        String[] descriptions={"Analyze loaded chunks for unusual patterns","Outline spawners in loaded chunks","Explore with a detached camera","Experimental one-attempt workflow"};
         int y=bodyY+40;
         int shown=0;
         int matching=0;
@@ -78,19 +78,20 @@ public final class DonutClientScreen extends Screen {
             if(!names[i].toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT)))continue;
             if(matching++<offset)continue;
             if(shown++>=Math.max(1,capacity(52)-1))continue;
-            final int index=i; boolean on=i==0?SusChunkScanner.isEnabled():i==1?SpawnerEsp.isEnabled():Freecam.isEnabled();
+            final int index=i; boolean on=i==0?SusChunkScanner.isEnabled():i==1?SpawnerEsp.isEnabled():i==2?Freecam.isEnabled():DonkeyCycle.active();
             line(names[i],on?"ON":"OFF",y+7);
             if(mainW>390)line(descriptions[i],"",y+23);
             var b=new SweetButton(on?"Disable":"Enable",mainX+mainW-84,y+3,72,()->{
                 if(index==0)SusChunkScanner.setEnabled(!SusChunkScanner.isEnabled());
                 if(index==1)SpawnerEsp.setEnabled(!SpawnerEsp.isEnabled());
                 if(index==2){if(Freecam.isEnabled())Freecam.setEnabled(false,client);else if(Freecam.setEnabled(true,client)){close();return;}else notice="Join a world and leave your vehicle first.";}
+                if(index==3){client.setScreen(new DonkeyCycleScreen(this));return;}
                 rebuild();
             });
             addDrawableChild(b);moduleButtons.add(b);y+=52;
         }
         if(rows.isEmpty())line("No modules match your search","",bodyY+50);
-        if(query.isEmpty())pager(3,Math.max(1,capacity(52)-1));
+        if(query.isEmpty())pager(4,Math.max(1,capacity(52)-1));
     }
     private void pager(int total,int count){
         int max=Math.max(0,((total-1)/count)*count);offset=Math.min(offset,max);
@@ -152,7 +153,7 @@ public final class DonutClientScreen extends Screen {
             double scale=World.NETHER.equals(client.world.getRegistryKey())?8:0.125;
             copy((int)Math.floor(client.player.getX()*scale)+" ~ "+(int)Math.floor(client.player.getZ()*scale));
         });
-        button("Disable all modules",mainX+12,y+66,mainW-24,()->{SusChunkScanner.setEnabled(false);SpawnerEsp.setEnabled(false);Freecam.setEnabled(false,client);notice="All modules disabled.";});
+        button("Disable all modules",mainX+12,y+66,mainW-24,()->{SusChunkScanner.setEnabled(false);SpawnerEsp.setEnabled(false);Freecam.setEnabled(false,client);DonkeyCycle.stop();notice="All modules disabled.";});
         line("Portal conversion uses X/Z at an 8:1 ratio.","",y+94);
     }
     private void settings(){
@@ -189,7 +190,7 @@ public final class DonutClientScreen extends Screen {
         roundFill(c,left,top,panelW,panelH,10,WINDOW);
         roundFill(c,left+6,top+6,112,panelH-12,7,0xFF191824);
         donut(c,left+28,top+28,10,0xFF191824);
-        text(c,"DESSERT",left+44,top+20,PINK);text(c,"CLIENT / 0.5.1",left+44,top+33,MUTED);
+        text(c,"DESSERT",left+44,top+20,PINK);text(c,"CLIENT / 0.6.0",left+44,top+33,MUTED);
         text(c,page.toUpperCase(Locale.ROOT),mainX+12,top+23,TEXT);
         text(c,textRenderer.trimToWidth("Your world. Your workspace.",mainW-24),mainX+12,top+42,MUTED);
         c.fill(mainX+12,top+63,left+panelW-12,top+64,0xFF302C40);
