@@ -13,5 +13,5 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(KeyboardInput.class)
 public abstract class FreecamInputMixin extends Input {
     @Inject(method="tick",at=@At("RETURN"))
-    private void dessert$input(CallbackInfo ci){if(Freecam.isEnabled()){playerInput=PlayerInput.DEFAULT;movementVector=Vec2f.ZERO;}}
+    private void dessert$input(CallbackInfo ci){if(Freecam.isEnabled()){playerInput=PlayerInput.DEFAULT;movementVector=Vec2f.ZERO;}else if(online.donutsmp.client.DonkeyCycle.walking()){playerInput=new PlayerInput(true,false,false,false,false,false,false);movementVector=new Vec2f(0,1);}}
 }

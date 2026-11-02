@@ -81,7 +81,7 @@ public final class DonutClientScreen extends Screen {
             final int index=i; boolean on=i==0?SusChunkScanner.isEnabled():i==1?SpawnerEsp.isEnabled():i==2?Freecam.isEnabled():DonkeyCycle.active();
             line(names[i],on?"ON":"OFF",y+7);
             if(mainW>390)line(descriptions[i],"",y+23);
-            var b=new SweetButton(on?"Disable":"Enable",mainX+mainW-84,y+3,72,()->{
+            var b=new SweetButton(index==3?"Open":on?"Disable":"Enable",mainX+mainW-84,y+3,72,()->{
                 if(index==0)SusChunkScanner.setEnabled(!SusChunkScanner.isEnabled());
                 if(index==1)SpawnerEsp.setEnabled(!SpawnerEsp.isEnabled());
                 if(index==2){if(Freecam.isEnabled())Freecam.setEnabled(false,client);else if(Freecam.setEnabled(true,client)){close();return;}else notice="Join a world and leave your vehicle first.";}

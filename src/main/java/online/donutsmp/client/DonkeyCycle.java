@@ -27,7 +27,7 @@ import online.donutsmp.client.mixin.MountInventoryAccessor;
 
 /** One explicitly started attempt of the recorded sequence. Never retries or claims duplication. */
 public final class DonkeyCycle {
-    public enum Stage {IDLE,MOUNT,OPEN,TRANSFER,DISMOUNT,TIMEOUT,RECONNECT,JOIN}
+    public enum Stage {IDLE,MOUNT,OPEN,TRANSFER,DISMOUNT,WALK,TIMEOUT,RECONNECT,JOIN}
     private static Stage stage=Stage.IDLE;
     private static String status="Ready. Put test items in a chested donkey first.";
     private static volatile ClientConnection filteredConnection;
@@ -42,6 +42,17 @@ public final class DonkeyCycle {
     private static int index,moved;
     private static ItemStack expected=ItemStack.EMPTY;
     public static boolean reconnect=true;
+    private static int walkTicks;
+    public static boolean walking(){
+        var mc=MinecraftClient.getInstance();
+        if(stage!=Stage.WALK||mc.player==null||mc.world!=world||mc.currentScreen!=null)return false;
+        double yaw=Math.toRadians(mc.player.getYaw());
+        var ahead=net.minecraft.util.math.BlockPos.ofFloored(mc.player.getX()-Math.sin(yaw)*.8,mc.player.getY(),mc.player.getZ()+Math.cos(yaw)*.8);
+        return mc.world.getChunkManager().isChunkLoaded(ahead.getX()>>4,ahead.getZ()>>4)
+            &&mc.world.getBlockState(ahead.down()).isSolidBlock(mc.world,ahead.down())
+            &&mc.world.getBlockState(ahead).getCollisionShape(mc.world,ahead).isEmpty()
+            &&mc.world.getBlockState(ahead.up()).getCollisionShape(mc.world,ahead.up()).isEmpty();
+    }
     private DonkeyCycle(){}
     public static boolean active(){return stage!=Stage.IDLE;}
     public static String status(){return status;}
@@ -130,7 +141,14 @@ public final class DonkeyCycle {
             }
             case DISMOUNT -> {
                 mc.getNetworkHandler().sendPacket(new PlayerInputC2SPacket(new PlayerInput(false,false,false,false,false,true,false)));
-                mc.player.stopRiding();phase(Stage.TIMEOUT,"Waiting for server timeout; no items will be dropped.");
+                mc.player.stopRiding();
+                double dx=mc.player.getX()-donkey.getX(),dz=mc.player.getZ()-donkey.getZ();
+                float yaw=dx*dx+dz*dz<.25?mc.player.getYaw()+180:(float)Math.toDegrees(Math.atan2(-dx,dz));
+                mc.player.setYaw(yaw);walkTicks=0;phase(Stage.WALK,"Walking away on clear, supported ground...");
+            }
+            case WALK -> {
+                if(mc.player.hasVehicle()){finish("Dismount was not accepted; stopped.");return;}
+                if(mc.player.squaredDistanceTo(donkey)>=36||++walkTicks>=60||!walking())phase(Stage.TIMEOUT,"Waiting for server timeout; movement released.");
             }
             case TIMEOUT -> {if(System.nanoTime()>=filterDeadline||now-since>75000)finish("Timed out locally. Normal networking restored; duplication unverified.");}
             default -> {}
