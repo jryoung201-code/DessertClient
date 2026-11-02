@@ -60,6 +60,6 @@ public final class ClientNotifications {
         var mc=MinecraftClient.getInstance();long now=System.currentTimeMillis();
         if(mode!=1){CARDS.addFirst(new Card(heading,body,now+duration*1000L,now));while(CARDS.size()>3)CARDS.removeLast();}
         if(mode!=0&&mc.player!=null)mc.player.sendMessage(Text.literal(heading+" » "+body),false);
-        if(sound)mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK,1f));
+        if(sound)mc.getSoundManager().play(PositionedSoundInstance.ui(SoundEvents.UI_BUTTON_CLICK,1f));
     }
 }
