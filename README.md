@@ -1,4 +1,4 @@
-<img width="1672" height="941" alt="Dessert Client Modules Dashboard" src="https://github.com/user-attachments/assets/58fa1b31-e56f-4320-a953-a76e58edafc1" />
+<img width="1672" height="941" alt="Dessert Client Minecraft Showcase" src="https://github.com/user-attachments/assets/7bcc366c-1359-4daf-9328-14d2e481843f" />
 # Dessert Client 🍩
 
 **Dessert Client — DonutSMP Edition** is a client-side utility mod for **Minecraft Java 1.21.11** built with Fabric. It uses a sweet pink, cream, and chocolate visual theme.
