@@ -14,6 +14,7 @@ public final class UiSmoke implements ClientModInitializer {
     @Override public void onInitializeClient(){ClientTickEvents.END_CLIENT_TICK.register(mc->{
         if(++total>7000)throw new IllegalStateException("World ESP test timed out phase="+phase);
         if(mc.getOverlay()!=null)return;
+        if(total%200==0)System.out.println("ESP_SMOKE phase="+phase+" count="+SpawnerEsp.getSpawnerCount()+" world="+(mc.world!=null));
         if(phase==0){
             mc.options.getGuiScale().setValue(2);mc.options.getViewDistance().setValue(4);
             mc.onResolutionChanged();phase=1;
@@ -34,7 +35,7 @@ public final class UiSmoke implements ClientModInitializer {
             });
             mc.setScreen(null);SpawnerEsp.setEnabled(true);return;
         }
-        if(phase==3&&++ticks>150){
+        if(phase==3&&SpawnerEsp.getSpawnerCount()==2&&++ticks>80){
             if(SpawnerEsp.getSpawnerCount()!=2)throw new IllegalStateException("Expected 2 spawners; found "+SpawnerEsp.getSpawnerCount());
             phase=4;ScreenshotRecorder.saveScreenshot(mc.runDirectory,"esp-enabled.png",mc.getFramebuffer(),1,text->captured.set(true));
         }
