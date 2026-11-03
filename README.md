@@ -1,4 +1,4 @@
-# Dessert Client 0.7.0
+# Dessert Client 0.7.1
 
 Minecraft Java 1.21.11 / Fabric Loader 0.18.1+ / Fabric API / Java 21. Mod Menu is optional. Replace the old client JAR; press **Right Shift** to open the control center.
 
@@ -70,3 +70,7 @@ The control center now opens on Modules with a warm chocolate palette, orange gl
 All three real modules remain: SUS Chunk Finder, Spawner ESP and Freecam. The removed module stays removed. Existing findings, amethyst observations, waypoints, tools, settings and alerts remain accessible.
 
 **HUD** controls the live FPS/ping, coordinates, biome and module list. **Theme** offers Desert sunset (default), Strawberry frosting and Mint chocolate. Choices persist in `config/dessert-ui.properties`. Notification cards match the selected theme by default; disable Match client theme in alert appearance settings to choose a custom notification accent. The right detail panel appears only when at least 480 logical GUI pixels of content width are available.
+
+## Highlight fix (0.7.1)
+
+World outlines draw at the end of the main world pass. Spawner ESP refreshes nearby chunks every five ticks, while keeping a bounded background sweep for more distant loaded chunks. Removed or replaced spawners are cleared on refresh.

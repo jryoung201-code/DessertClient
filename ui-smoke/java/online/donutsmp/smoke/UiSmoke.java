@@ -21,7 +21,7 @@ public final class UiSmoke implements ClientModInitializer {
         }
         if(phase==1&&mc.currentScreen instanceof CreateWorldScreen screen){
             for(var child:screen.children())if(child instanceof ButtonWidget b && b.getMessage().getString().equals("Create New World")){
-                phase=2;b.onPress();return;
+                phase=2;b.onPress(new net.minecraft.client.input.KeyInput(257,0,0));return;
             }
         }
         if(phase==2&&mc.player!=null&&mc.world!=null&&mc.getServer()!=null){
@@ -29,7 +29,7 @@ public final class UiSmoke implements ClientModInitializer {
             server.execute(()->{
                 var source=server.getCommandSource();
                 for(String command:new String[]{"gamemode creative @a","fill -10 80 -10 10 95 15 air","fill -10 80 -10 10 80 15 stone","tp @a 0 81 0 0 10","setblock -2 81 6 spawner","setblock 2 81 6 spawner","fill 1 81 4 3 84 4 stone","time set noon","weather clear"})
-                    server.getCommandManager().executeWithPrefix(source,command);
+                    server.getCommandManager().parseAndExecute(source,command);
             });
             mc.setScreen(null);SpawnerEsp.setEnabled(true);return;
         }
