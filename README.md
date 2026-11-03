@@ -1,4 +1,4 @@
-# Dessert Client 0.7.1
+# Dessert Client 0.7.2
 
 Minecraft Java 1.21.11 / Fabric Loader 0.18.1+ / Fabric API / Java 21. Mod Menu is optional. Replace the old client JAR; press **Right Shift** to open the control center.
 
@@ -76,3 +76,7 @@ All three real modules remain: SUS Chunk Finder, Spawner ESP and Freecam. The re
 World outlines draw at the end of the main world pass. Spawner ESP refreshes nearby chunks every five ticks, while keeping a bounded background sweep for more distant loaded chunks. Removed or replaced spawners are cleared on refresh.
 
 Verified in a real local Minecraft world: exposed and stone-covered spawners both receive pink outlines; disabling ESP removes them. The opt-in development smoke test captures enabled and disabled frames and is excluded from the release JAR.
+
+## Consistent highlight colors (0.7.2)
+
+Spawner ESP, SUS chunk outlines and amethyst outlines use a dedicated fragment shader without fog blending. Both through-wall and depth-tested chunk highlights keep their selected colors at distance. Normal world fog is unchanged. Outlines still require loaded chunks and remain subject to configured distance limits.

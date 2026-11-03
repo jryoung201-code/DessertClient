@@ -38,7 +38,7 @@ public final class SusChunkRenderer {
     private static final RenderPipeline THROUGH_WALLS_PIPELINE = RenderPipelines.register(
             RenderPipeline.builder(new RenderPipeline.Snippet(
                     Optional.of(RenderPipelines.LINES.getVertexShader()),
-                    Optional.of(RenderPipelines.LINES.getFragmentShader()),
+                    Optional.of(Identifier.of("dessert-client", "core/highlight_lines")),
                     Optional.of(RenderPipelines.LINES.getShaderDefines()),
                     Optional.of(RenderPipelines.LINES.getSamplers()),
                     Optional.of(RenderPipelines.LINES.getUniforms()),
@@ -59,6 +59,32 @@ public final class SusChunkRenderer {
     private static final RenderLayer THROUGH_WALLS_LINES = RenderLayer.of(
             "dessert_client_through_walls_lines",
             RenderSetup.builder(THROUGH_WALLS_PIPELINE).build()
+    );
+
+    private static final RenderPipeline DEPTH_TESTED_PIPELINE = RenderPipelines.register(
+            RenderPipeline.builder(new RenderPipeline.Snippet(
+                    Optional.of(RenderPipelines.LINES.getVertexShader()),
+                    Optional.of(Identifier.of("dessert-client", "core/highlight_lines")),
+                    Optional.of(RenderPipelines.LINES.getShaderDefines()),
+                    Optional.of(RenderPipelines.LINES.getSamplers()),
+                    Optional.of(RenderPipelines.LINES.getUniforms()),
+                    RenderPipelines.LINES.getBlendFunction(),
+                    Optional.of(DepthTestFunction.LEQUAL_DEPTH_TEST),
+                    Optional.of(RenderPipelines.LINES.getPolygonMode()),
+                    Optional.of(RenderPipelines.LINES.isCull()),
+                    Optional.of(RenderPipelines.LINES.isWriteColor()),
+                    Optional.of(RenderPipelines.LINES.isWriteAlpha()),
+                    Optional.of(false),
+                    Optional.of(RenderPipelines.LINES.getColorLogic()),
+                    Optional.of(RenderPipelines.LINES.getVertexFormat()),
+                    Optional.of(RenderPipelines.LINES.getVertexFormatMode())
+            )).withLocation(Identifier.of("dessert-client", "pipeline/depth_tested_highlight_lines"))
+                    .build()
+    );
+
+    private static final RenderLayer DEPTH_TESTED_LINES = RenderLayer.of(
+            "dessert_client_depth_tested_highlight_lines",
+            RenderSetup.builder(DEPTH_TESTED_PIPELINE).build()
     );
 
     private static final VertexConsumerProvider.Immediate OVERLAY = VertexConsumerProvider.immediate(new BufferAllocator(262144));
@@ -89,7 +115,7 @@ public final class SusChunkRenderer {
 
             Vec3d camera = client.gameRenderer.getCamera().getCameraPos();
             VertexConsumer lines = consumers.getBuffer(
-                    throughWalls ? THROUGH_WALLS_LINES : RenderLayers.lines());
+                    throughWalls ? THROUGH_WALLS_LINES : DEPTH_TESTED_LINES);
 
             matrices.push();
 
@@ -136,7 +162,7 @@ public final class SusChunkRenderer {
                 }
             } finally {
                 matrices.pop();
-                consumers.draw(throughWalls ? THROUGH_WALLS_LINES : RenderLayers.lines());
+                consumers.draw(throughWalls ? THROUGH_WALLS_LINES : DEPTH_TESTED_LINES);
             }
         });
     }

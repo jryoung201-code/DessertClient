@@ -48,7 +48,7 @@ public final class SpawnerEsp {
     private static final RenderPipeline THROUGH_WALLS_PIPELINE = RenderPipelines.register(
             RenderPipeline.builder(new RenderPipeline.Snippet(
                     Optional.of(RenderPipelines.LINES.getVertexShader()),
-                    Optional.of(RenderPipelines.LINES.getFragmentShader()),
+                    Optional.of(Identifier.of("dessert-client", "core/highlight_lines")),
                     Optional.of(RenderPipelines.LINES.getShaderDefines()),
                     Optional.of(RenderPipelines.LINES.getSamplers()),
                     Optional.of(RenderPipelines.LINES.getUniforms()),

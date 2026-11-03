@@ -28,9 +28,9 @@ public final class UiSmoke implements ClientModInitializer {
         if(phase==2&&mc.player!=null&&mc.world!=null&&mc.getServer()!=null){
             phase=3;ticks=0;var server=mc.getServer();
             server.execute(()->{
-                for(int cx=-1;cx<=0;cx++)for(int cz=-1;cz<=0;cz++)server.getOverworld().getChunk(cx,cz);
+                for(int cx=-1;cx<=0;cx++)for(int cz=-1;cz<=3;cz++)server.getOverworld().getChunk(cx,cz);
                 var source=server.getCommandSource();
-                for(String command:new String[]{"gamemode creative @a","fill -10 80 -10 10 95 15 air","fill -10 80 -10 10 80 15 stone","tp @a 0 81 0 0 10","setblock -2 81 6 spawner","setblock 2 81 6 spawner","fill 1 81 4 3 84 4 stone","time set noon","weather clear"})
+                for(String command:new String[]{"gamemode creative @a","fill -10 80 48 10 95 62 air","fill -10 80 48 10 80 62 stone","tp @a 0 81 50 0 0","setblock -2 81 58 spawner","setblock 2 81 58 spawner","fill 1 81 56 3 84 56 stone","time set noon","weather clear"})
                     server.getCommandManager().parseAndExecute(source,command);
             });
             mc.setScreen(null);SpawnerEsp.setEnabled(true);return;
@@ -41,11 +41,14 @@ public final class UiSmoke implements ClientModInitializer {
             phase=4;ScreenshotRecorder.saveScreenshot(mc.runDirectory,"esp-enabled.png",mc.getFramebuffer(),1,text->captured.set(true));
         }
         if(phase==4&&captured.get()){
-            captured.set(false);SpawnerEsp.setEnabled(false);phase=5;ticks=0;
+            captured.set(false);phase=5;ticks=0;
+            var server=mc.getServer();server.execute(()->server.getCommandManager().parseAndExecute(server.getCommandSource(),"tp @a 0 81 0 0 0"));
         }
-        if(phase==5&&++ticks>20){phase=6;ScreenshotRecorder.saveScreenshot(mc.runDirectory,"esp-disabled.png",mc.getFramebuffer(),1,text->captured.set(true));}
+        if(phase==5&&++ticks>160){phase=6;ScreenshotRecorder.saveScreenshot(mc.runDirectory,"esp-distant.png",mc.getFramebuffer(),1,text->captured.set(true));}
         if(phase==6&&captured.get()){
-            System.out.println("DESSERT_WORLD_ESP_SMOKE_PASSED");phase=7;mc.scheduleStop();
+            captured.set(false);SpawnerEsp.setEnabled(false);phase=7;ticks=0;
         }
+        if(phase==7&&++ticks>20){phase=8;ScreenshotRecorder.saveScreenshot(mc.runDirectory,"esp-disabled.png",mc.getFramebuffer(),1,text->captured.set(true));}
+        if(phase==8&&captured.get()){System.out.println("DESSERT_WORLD_ESP_SMOKE_PASSED");phase=9;mc.scheduleStop();}
     });}
 }
