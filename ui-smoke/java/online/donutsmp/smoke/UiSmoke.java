@@ -36,15 +36,21 @@ public final class UiSmoke implements ClientModInitializer {
             mc.setScreen(null);SpawnerEsp.setEnabled(true);return;
         }
         if(phase==3&&mc.currentScreen!=null)mc.setScreen(null);
-        if(phase==3&&SpawnerEsp.getSpawnerCount()==2&&++ticks>80){
-            if(SpawnerEsp.getSpawnerCount()!=2)throw new IllegalStateException("Expected 2 spawners; found "+SpawnerEsp.getSpawnerCount());
+        if(phase==3&&mc.player.getZ()>49&&mc.player.getZ()<51
+                &&mc.world.getBlockState(new net.minecraft.util.math.BlockPos(-2,81,58)).isOf(net.minecraft.block.Blocks.SPAWNER)
+                &&mc.world.getBlockState(new net.minecraft.util.math.BlockPos(2,81,58)).isOf(net.minecraft.block.Blocks.SPAWNER)
+                &&SpawnerEsp.getSpawnerCount()>=2&&++ticks>80){
+            if(SpawnerEsp.getSpawnerCount()<2)throw new IllegalStateException("Expected 2 spawners; found "+SpawnerEsp.getSpawnerCount());
             phase=4;ScreenshotRecorder.saveScreenshot(mc.runDirectory,"esp-enabled.png",mc.getFramebuffer(),1,text->captured.set(true));
         }
         if(phase==4&&captured.get()){
             captured.set(false);phase=5;ticks=0;
             var server=mc.getServer();server.execute(()->server.getCommandManager().parseAndExecute(server.getCommandSource(),"tp @a 0 81 0 0 0"));
         }
-        if(phase==5&&++ticks>160){phase=6;ScreenshotRecorder.saveScreenshot(mc.runDirectory,"esp-distant.png",mc.getFramebuffer(),1,text->captured.set(true));}
+        if(phase==5&&mc.player.getZ()<1
+                &&mc.world.getBlockState(new net.minecraft.util.math.BlockPos(-2,81,58)).isOf(net.minecraft.block.Blocks.SPAWNER)
+                &&mc.world.getBlockState(new net.minecraft.util.math.BlockPos(2,81,58)).isOf(net.minecraft.block.Blocks.SPAWNER)
+                &&++ticks>160){phase=6;ScreenshotRecorder.saveScreenshot(mc.runDirectory,"esp-distant.png",mc.getFramebuffer(),1,text->captured.set(true));}
         if(phase==6&&captured.get()){
             captured.set(false);SpawnerEsp.setEnabled(false);phase=7;ticks=0;
         }
