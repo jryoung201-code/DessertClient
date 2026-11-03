@@ -73,6 +73,7 @@ if (project.hasProperty('uiSmoke')) {
         }
         runs {
             client {
+                source sourceSets.uiSmoke
                 programArgs '--width', '1600', '--height', '900'
             }
         }

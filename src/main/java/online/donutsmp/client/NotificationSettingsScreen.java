@@ -19,7 +19,7 @@ public final class NotificationSettingsScreen extends Screen {
         }else{
             int half=(w-8)/2;
             button(ClientNotifications.modeName(),x,52,w,()->{ClientNotifications.mode=(ClientNotifications.mode+1)%3;init();});
-            button("Color",x,78,half,()->ClientNotifications.cycleColor());
+            button("Color",x,78,half,()->{ClientNotifications.cycleColor();init();});
             button("Sound: "+ClientNotifications.sound,x+half+8,78,half,()->{ClientNotifications.sound=!ClientNotifications.sound;init();});
             button("Duration: "+ClientNotifications.duration+"s",x,104,half,()->{ClientNotifications.duration=ClientNotifications.duration>=20?2:ClientNotifications.duration+1;init();});
             button("Cooldown: "+ClientNotifications.cooldown+"s",x+half+8,104,half,()->{ClientNotifications.cooldown=ClientNotifications.cooldown>=600?10:ClientNotifications.cooldown+10;init();});
