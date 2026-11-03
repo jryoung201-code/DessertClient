@@ -15,7 +15,7 @@ public final class NotificationPreviewScreen extends Screen {
     }
     @Override public void renderBackground(DrawContext c,int mx,int my,float delta){}
     @Override public void render(DrawContext c,int mx,int my,float delta){
-        c.fill(0,0,width,height,0xF00E0E17);ClientNotifications.drawPreview(c,width,height);super.render(c,mx,my,delta);
+        c.fill(0,0,width,height,UiTheme.WINDOW);ClientNotifications.drawPreview(c,width,height);super.render(c,mx,my,delta);
     }
     @Override public void close(){client.setScreen(parent);}
     @Override public boolean shouldPause(){return false;}

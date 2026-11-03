@@ -27,8 +27,8 @@ public final class FindingDetailsScreen extends Screen {
     }
     @Override public void renderBackground(DrawContext c,int mx,int my,float delta){}
     @Override public void render(DrawContext c,int mx,int my,float delta){
-        c.fill(0,0,width,height,0xF012121B);
-        c.drawText(textRenderer,"CHUNK "+finding.chunkX()+", "+finding.chunkZ()+" / "+String.format(Locale.ROOT,"%.2f points",finding.score()),20,20,0xFFFF80B5,false);
+        c.fill(0,0,width,height,UiTheme.WINDOW);
+        c.drawText(textRenderer,"CHUNK "+finding.chunkX()+", "+finding.chunkZ()+" / "+String.format(Locale.ROOT,"%.2f points",finding.score()),20,20,UiTheme.accent(),false);
         c.drawText(textRenderer,"XYZ: "+finding.targetX()+" "+finding.targetY()+" "+finding.targetZ(),20,40,0xFFF4F1FA,false);
         if(client.player!=null){double dx=client.player.getX()-finding.targetX(),dy=client.player.getY()-finding.targetY(),dz=client.player.getZ()-finding.targetZ();c.drawText(textRenderer,"Distance: "+Math.round(Math.sqrt(dx*dx+dy*dy+dz*dz))+" blocks",20,55,0xFFA7A4BA,false);}
         int capacity=Math.max(1,(height-118)/13);

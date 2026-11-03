@@ -1,4 +1,4 @@
-# Dessert Client 0.6.1
+# Dessert Client 0.7.0
 
 Minecraft Java 1.21.11 / Fabric Loader 0.18.1+ / Fabric API / Java 21. Mod Menu is optional. Replace the old client JAR; press **Right Shift** to open the control center.
 
@@ -62,3 +62,11 @@ Open **Alerts → Customize notifications**. Edit the title/message, choose on-s
 The on-screen notification overlay uses rounded cards, an accent badge, slide-in animation and a lifetime bar. Up to three cards stack in your chosen corner without covering the hotbar. Choose top-right (default), top-left, bottom-right or bottom-left under **Alerts → Customize notifications → Appearance**. Text, sound, duration, chat/card mode and cooldown remain configurable and saved.
 
 **Preview** opens a full-screen sample using the actual overlay renderer, including from the title screen. The preview works independently of scanner thresholds and world state. Use its Corner button to compare positions; return and press Save to persist your choice. Chat-only mode does not show cards during normal gameplay; choose on-screen cards or both to see the overlay. F1 hides it during gameplay.
+
+## Desert UI (0.7.0)
+
+The control center now opens on Modules with a warm chocolate palette, orange glow, a drawn sunset/dunes/cactus header and donut branding. Module cards have independent toggles and configuration controls. Selecting a card shows its illustration, description and live state in a right-hand panel on wider layouts. At smaller GUI sizes, the detail panel is hidden and modules/navigation are paginated. Keyboard Tab, Enter and Space work with the native controls.
+
+All three real modules remain: SUS Chunk Finder, Spawner ESP and Freecam. The removed module stays removed. Existing findings, amethyst observations, waypoints, tools, settings and alerts remain accessible.
+
+**HUD** controls the live FPS/ping, coordinates, biome and module list. **Theme** offers Desert sunset (default), Strawberry frosting and Mint chocolate. Choices persist in `config/dessert-ui.properties`. Notification cards match the selected theme by default; disable Match client theme in alert appearance settings to choose a custom notification accent. The right detail panel appears only when at least 480 logical GUI pixels of content width are available.

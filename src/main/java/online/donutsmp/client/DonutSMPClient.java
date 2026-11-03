@@ -32,11 +32,13 @@ public final class DonutSMPClient implements ClientModInitializer {
 
         scannerKey=shortcut("scanner");spawnerKey=shortcut("spawners");cameraKey=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.donutsmpclient.freecam",InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_F6,KeyBinding.Category.MISC));
         bookmarkKey=shortcut("waypoint");disableKey=shortcut("disable_all");
+        UiTheme.load();
         ClientPreferences.load();
         SusChunkRenderer.register();
         SpawnerEsp.register();
         Freecam.register();
         ClientNotifications.register();
+        HudOverlay.register();
 
         ClientChunkEvents.CHUNK_LOAD.register((world, chunk) ->
                 SusChunkScanner.onChunkLoaded(chunk.getPos()));
