@@ -30,7 +30,7 @@ public final class UiSmoke implements ClientModInitializer {
             server.execute(()->{
                 for(int cx=-1;cx<=0;cx++)for(int cz=-1;cz<=3;cz++)server.getOverworld().getChunk(cx,cz);
                 var source=server.getCommandSource();
-                for(String command:new String[]{"gamemode creative @a","fill -10 80 48 10 95 62 air","fill -10 80 48 10 80 62 stone","tp @a 0 81 50 0 0","setblock -2 81 58 spawner","setblock 2 81 58 spawner","fill 1 81 56 3 84 56 stone","time set noon","weather clear"})
+                for(String command:new String[]{"gamemode creative @a","fill -3 81 -3 3 95 3 air","fill -3 80 -3 3 80 3 stone","fill -10 80 48 10 95 62 air","fill -10 80 48 10 80 62 stone","tp @a 0 81 50 0 0","setblock -2 81 58 spawner","setblock 2 81 58 spawner","fill 1 81 56 3 84 56 stone","time set noon","weather clear"})
                     server.getCommandManager().parseAndExecute(source,command);
             });
             mc.setScreen(null);SpawnerEsp.setEnabled(true);return;
