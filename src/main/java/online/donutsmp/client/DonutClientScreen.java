@@ -1,531 +1,228 @@
 package online.donutsmp.client;
 
-import java.util.Locale;
+import java.util.*;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
+/** Compact, keyboard-accessible control center. Every navigation item has working content. */
 public final class DonutClientScreen extends Screen {
-    // Palette (ARGB) taken from the Dessert Client mockup: dark chocolate surfaces, strawberry-pink accents.
-    private static final int BACKDROP = 0xA0100510;
-    private static final int WINDOW = 0xF2150B13;
-    private static final int SIDEBAR = 0xF2110810;
-    private static final int PANEL = 0xF01D0F1A;
-    private static final int INNER = 0xF0110910;
-    private static final int ROW = 0xF0261421;
-    private static final int PINK = 0xFFFF6FAE;
-    private static final int PINK_HOT = 0xFFE63E86;
-    private static final int PINK_LIGHT = 0xFFFFA8CC;
-    private static final int BORDER_DIM = 0xFF5A2A40;
-    private static final int BORDER_FAINT = 0xFF3A2433;
-    private static final int TEXT = 0xFFFFF3F8;
-    private static final int MUTED = 0xFFD8B9C9;
-    private static final int BLUE = 0xFF4DB6FF;
-    private static final int CYAN = 0xFF54DFFF;
-    private static final int GREEN = 0xFF3DE06E;
-    private static final int ORANGE = 0xFFFFA83A;
-    private static final int YELLOW = 0xFFE9D84A;
-
-    private static final String SCANNER = "SUS Chunk Scanner";
-    private static final String SPAWNER_ESP = "Spawner ESP";
-    private static final String FREECAM = "Freecam";
-    private static final String[] PAGES = {"Dashboard", SCANNER, SPAWNER_ESP, FREECAM, "Money Tracker", "Auction House", "Waypoints", "Player", "World", "Render", "Utilities", "Configs"};
-    private static final String[] ICONS = {"⌂", "◎", "◉", "✥", "▤", "⚒", "◆", "♟", "⬡", "◉", "⚙", "▣"};
-    private static final int SIDE_COL_W = 156;
-    private static final int SIDE_COL_GAP = 10;
-
-    private boolean scannerEnabled = SusChunkScanner.isEnabled();
-    private static boolean highlightChunks = true;
-    private static boolean showThroughWalls = true;
-    private static boolean amethystOnly = false;
-    private static boolean amethystDropdownOpen = false;
-    private String activePage = SCANNER;
-
-    private int left, top, panelW, panelH, navW, navStep, navItemH, mainX, mainW;
-    private int statusY, statusH, controlsY, recentY;
-    private boolean showSideCol;
-    private int sideX;
-
-    public DonutClientScreen() {
-        super(Text.literal("Dessert Client"));
+    private static final int WINDOW=0xFF12121B, PINK=0xFFFF80B5, TEXT=0xFFF4F1FA, MUTED=0xFFA7A4BA;
+    private static String page="Overview";
+    private static final String[] PAGES={"Overview","Modules","Findings","Amethyst","Waypoints","Tools","Settings","Alerts"};
+    private int left,top,panelW,panelH,mainX,mainW,bodyY,offset;
+    private String query="", notice="";
+    private TextFieldWidget search;
+    public DonutClientScreen(){super(Text.literal("Dessert Client"));}
+    @Override protected void init(){
+        panelW=Math.min(860,width-16); panelH=Math.min(510,height-16);
+        left=(width-panelW)/2;top=(height-panelH)/2;
+        mainX=left+126;mainW=panelW-142;bodyY=top+83;
+        rebuild();
     }
-
-    @Override
-    protected void init() {
-        showSideCol = width >= 760;
-        panelW = Math.min(showSideCol ? 880 : 1120, width - 24 - (showSideCol ? SIDE_COL_W + SIDE_COL_GAP : 0));
-        panelH = Math.min(540, height - 24);
-        int total = panelW + (showSideCol ? SIDE_COL_GAP + SIDE_COL_W : 0);
-        left = (width - total) / 2;
-        top = (height - panelH) / 2;
-        sideX = left + panelW + SIDE_COL_GAP;
-        navW = Math.min(200, Math.max(160, panelW / 4));
-        navStep = Math.max(20, Math.min(33, (panelH - 16 - 56 - 10) / PAGES.length));
-        navItemH = Math.min(28, navStep - 4);
-        mainX = left + navW + 22;
-        mainW = panelW - navW - 36;
-        statusY = top + 80;
-        statusH = 136;
-        controlsY = statusY + statusH + 10;
-        recentY = controlsY + 40 + (amethystDropdownOpen ? 38 : 0);
+    private void button(String label,int x,int y,int w,Runnable action){
+        addDrawableChild(new SweetButton(label,x,y,w,action));
     }
-
-    @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Avoid vanilla blur; draw the complete custom background ourselves.
-    }
-
-    @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
-        c.fill(0, 0, width, height, BACKDROP);
-        roundFill(c, left - 2, top - 2, panelW + 4, panelH + 4, 10, 0x40FF4F9A);
-        roundBox(c, left, top, panelW, panelH, 8, WINDOW, PINK_HOT);
-
-        drawSidebar(c, mouseX, mouseY);
-        drawWindowControls(c);
-
-        boolean scanner = SCANNER.equals(activePage);
-        drawHeader(c, scanner);
-        if (scanner) {
-            drawStatus(c);
-            drawControls(c, mouseX, mouseY);
-            drawRecent(c);
-        } else if (SPAWNER_ESP.equals(activePage)) {
-            drawSpawnerEsp(c, mouseX, mouseY);
-        } else if (FREECAM.equals(activePage)) {
-            drawFreecam(c, mouseX, mouseY);
-        } else if ("Configs".equals(activePage)) {
-            drawSettings(c, mouseX, mouseY);
-        } else {
-            drawPlaceholder(c);
-        }
-
-        if (showSideCol) {
-            int infoH = drawInfoBox(c, sideX, top + 34);
-            drawKeybinds(c, sideX, top + 34 + infoH + 10);
-        }
-        super.render(c, mouseX, mouseY, delta);
-    }
-
-    // ---------------------------------------------------------------- sidebar
-
-    private int navItemY(int i) {
-        return top + 8 + 56 + i * navStep;
-    }
-
-    private boolean navVisible(int i) {
-        return navItemY(i) + navItemH <= top + panelH - 16;
-    }
-
-    private void drawSidebar(DrawContext c, int mx, int my) {
-        int x = left + 8, y = top + 8, h = panelH - 16;
-        roundBox(c, x, y, navW, h, 6, SIDEBAR, BORDER_DIM);
-        donut(c, x + 22, y + 24, 10, SIDEBAR);
-        drawBold(c, "Dessert Client", x + 40, y + 20, TEXT);
-        c.fill(x + 8, y + 46, x + navW - 8, y + 47, BORDER_FAINT);
-
-        for (int i = 0; i < PAGES.length; i++) {
-            if (!navVisible(i)) break;
-            int iy = navItemY(i);
-            int ix = x + 8, iw = navW - 16;
-            boolean selected = PAGES[i].equals(activePage);
-            boolean hover = mx >= ix && mx < ix + iw && my >= iy && my < iy + navItemH;
-            if (selected) {
-                roundBox(c, ix, iy, iw, navItemH, 5, 0xFFC73A78, 0xFFFF8FBF);
-            } else if (hover) {
-                roundBox(c, ix, iy, iw, navItemH, 5, 0xFF2E1624, BORDER_DIM);
-            }
-            drawText(c, ICONS[i], ix + 10, iy + (navItemH - 8) / 2 + 1, selected ? TEXT : PINK_LIGHT);
-            drawText(c, PAGES[i], ix + 30, iy + (navItemH - 8) / 2 + 1, selected ? TEXT : MUTED);
-        }
-
-        // Connection toast (bottom of sidebar) when there is room for it.
-        int toastH = 62;
-        int toastY = top + panelH - 16 - toastH;
-        int last = PAGES.length - 1;
-        if (navVisible(last) && navItemY(last) + navItemH + 8 <= toastY) {
-            int tx = x + 8, tw = navW - 16;
-            roundBox(c, tx, toastY, tw, toastH, 6, 0xF0170C14, 0xFF7A2E55);
-            donut(c, tx + 14, toastY + 13, 5, 0xF0170C14);
-            drawBold(c, "Dessert Client", tx + 26, toastY + 9, PINK);
-            int maxW = tw - 12 - 20;
-            drawToastLine(c, tx + 8, toastY + 24, connectionLine(), maxW);
-            drawToastLine(c, tx + 8, toastY + 36, "Scanner: " + (scannerEnabled ? "ON" : "OFF"), maxW);
-            drawToastLine(c, tx + 8, toastY + 48, "Enjoy your sweet journey!", maxW);
+    private void rebuild(){
+        clearChildren();moduleButtons.clear();
+        for(int i=0;i<PAGES.length;i++){String target=PAGES[i];button(target,left+12,top+52+i*Math.min(27,(panelH-60)/PAGES.length),100,()->{page=target;offset=0;query="";rebuild();});}
+        button("Close",left+panelW-58,top+13,44,this::close);
+        switch(page){
+            case "Overview" -> overview();
+            case "Modules" -> modules();
+            case "Findings" -> findings();
+            case "Amethyst" -> amethyst();
+            case "Waypoints" -> waypoints();
+            case "Tools" -> tools();
+            case "Settings" -> settings();
+            case "Alerts" -> {resetRows();button("Customize notifications",mainX+12,bodyY+12,mainW-24,()->client.setScreen(new NotificationSettingsScreen(this)));button("Test outline (10s)",mainX+12,bodyY+42,mainW-24,()->{SusChunkRenderer.preview();close();});line("Test cube: 3 blocks east of your player.","",bodyY+72);}
         }
     }
-
-    private void drawToastLine(DrawContext c, int x, int y, String s, int maxW) {
-        drawText(c, "[+]", x, y, GREEN);
-        drawText(c, textRenderer.trimToWidth(s, maxW), x + 20, y, TEXT);
+    private void line(String label,String value,int y){rows.add(new Row(label,value,y));}
+    private record Row(String label,String value,int y){}
+    private final List<Row> rows=new ArrayList<>();
+    private void resetRows(){rows.clear();}
+    private int capacity(int rowHeight){return Math.max(1,(top+panelH-54-bodyY)/rowHeight);}
+    private void overview(){
+        resetRows();
+        line("YOUR WORKSPACE","Dessert Client 0.6.1",bodyY+12);
+        if(capacity(24)>3)line("Scanner",SusChunkScanner.isEnabled()?"Running":"Paused",bodyY+42);
+        if(capacity(24)>3)line("Chunks analyzed",String.valueOf(SusChunkScanner.getScannedChunks()),bodyY+64);
+        if(capacity(24)>4)line("Suspicious findings",String.valueOf(SusChunkScanner.getFindingCount()),bodyY+86);
+        if(capacity(24)>5)line("Loaded spawners",String.valueOf(SpawnerEsp.getSpawnerCount()),bodyY+108);
+        if(capacity(24)>6)line("Saved waypoints",String.valueOf(ClientWorkspace.points().size()),bodyY+130);
+        if(capacity(24)>7){line("QUICK START","Select Modules to configure your client",bodyY+164);}
+        button("Modules",mainX+12,top+panelH-76,(mainW-30)/2,()->{page="Modules";rebuild();});
+        button("Save location",mainX+18+(mainW-30)/2,top+panelH-76,(mainW-30)/2,()->savePoint("Waypoint"));
     }
-
-    private static String connectionLine() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ServerInfo info = mc.getCurrentServerEntry();
-        if (info != null) return "Connected to " + info.address;
-        return mc.world != null ? "In singleplayer" : "Not connected";
+    private void modules(){
+        resetRows();
+        search=new TextFieldWidget(textRenderer,mainX+12,bodyY+8,mainW-24,20,Text.literal("Search modules"));
+        search.setMaxLength(60);search.setText(query);search.setPlaceholder(Text.literal("Search modules..."));
+        search.setChangedListener(v->{query=v;offset=0;rebuildModuleSearch();});addDrawableChild(search);refreshModules();
     }
-
-    // ------------------------------------------------------- window / header
-
-    private void drawWindowControls(DrawContext c) {
-        int y = top + 12;
-        int closeX = left + panelW - 24;
-        int maxX = closeX - 24;
-        int minX = maxX - 24;
-        c.fill(minX, y + 6, minX + 9, y + 7, MUTED);
-        c.fill(maxX, y, maxX + 9, y + 1, MUTED);
-        c.fill(maxX, y + 8, maxX + 9, y + 9, MUTED);
-        c.fill(maxX, y, maxX + 1, y + 9, MUTED);
-        c.fill(maxX + 8, y, maxX + 9, y + 9, MUTED);
-        drawText(c, "×", closeX, y, TEXT);
-    }
-
-    private void drawHeader(DrawContext c, boolean scanner) {
-        int y0 = top + 34;
-        if (scanner) {
-            target(c, mainX + 14, y0 + 14, 9);
-        } else {
-            donut(c, mainX + 14, y0 + 14, 10, WINDOW);
+    private void rebuildModuleSearch(){int cursor=search.getCursor();rebuild();search.setCursor(cursor,false);setFocused(search);}
+    private final List<ButtonWidget> moduleButtons=new ArrayList<>();
+    private void refreshModules(){
+        for(var b:moduleButtons)remove(b);moduleButtons.clear();resetRows();
+        String[] names={"SUS Chunk Finder","Spawner ESP","Freecam"};
+        String[] descriptions={"Analyze loaded chunks for unusual patterns","Outline spawners in loaded chunks","Explore with a detached camera"};
+        int y=bodyY+40;
+        int shown=0;
+        int matching=0;
+        for(int i=0;i<names.length;i++){
+            if(!names[i].toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT)))continue;
+            if(matching++<offset)continue;
+            if(shown++>=Math.max(1,capacity(52)-1))continue;
+            final int index=i; boolean on=i==0?SusChunkScanner.isEnabled():i==1?SpawnerEsp.isEnabled():Freecam.isEnabled();
+            line(names[i],on?"ON":"OFF",y+7);
+            if(mainW>390)line(descriptions[i],"",y+23);
+            var b=new SweetButton(on?"Disable":"Enable",mainX+mainW-84,y+3,72,()->{
+                if(index==0)SusChunkScanner.setEnabled(!SusChunkScanner.isEnabled());
+                if(index==1)SpawnerEsp.setEnabled(!SpawnerEsp.isEnabled());
+                if(index==2){if(Freecam.isEnabled())Freecam.setEnabled(false,client);else if(Freecam.setEnabled(true,client)){close();return;}else notice="Join a world and leave your vehicle first.";}
+                rebuild();
+            });
+            addDrawableChild(b);moduleButtons.add(b);y+=52;
         }
-        drawBold(c, activePage, mainX + 36, y0 + 4, TEXT);
-        String subtitle = scanner ? "Underground clues  •  Chunk coordinates  •  Local scan results" : (SPAWNER_ESP.equals(activePage) ? "Loaded mob spawners  •  Configurable outline" : (FREECAM.equals(activePage) ? "Detached camera  •  Client-side movement" : "This page is coming soon"));
-        int subMax = mainW - 36 - (scanner ? 118 + 10 : 0);
-        drawText(c, textRenderer.trimToWidth(subtitle, subMax), mainX + 36, y0 + 18, MUTED);
-
-        if (scanner) {
-            int pw = 118, ph = 24;
-            int px = mainX + mainW - pw, py = y0 + 2;
-            roundBox(c, px, py, pw, ph, 4, 0xFF3A1228, 0xFFB03060);
-            disc(c, px + 14, py + ph / 2, 4, scannerEnabled ? GREEN : 0xFF8A7480);
-            drawText(c, scannerEnabled ? "Ready to scan" : "Scanner paused", px + 26, py + 8, TEXT);
-        }
+        if(rows.isEmpty())line("No modules match your search","",bodyY+50);
+        if(query.isEmpty())pager(3,Math.max(1,capacity(52)-1));
     }
+    private void pager(int total,int count){
+        int max=Math.max(0,((total-1)/count)*count);offset=Math.min(offset,max);
+        button("<",mainX+12,top+panelH-40,30,()->{offset=Math.max(0,offset-count);rebuild();});
+        button(">",mainX+48,top+panelH-40,30,()->{offset=Math.min(max,offset+count);rebuild();});
 
-
-    private void drawSpawnerEsp(DrawContext c, int mx, int my) {
-        int h = top + panelH - 14 - statusY;
-        if (h < 150) return;
-        roundBox(c, mainX, statusY, mainW, h, 6, PANEL, BORDER_DIM);
-        drawBold(c, "SPAWNER ESP", mainX + 14, statusY + 14, PINK_LIGHT);
-        drawText(c, "Outline mob spawners found in already-loaded chunks.", mainX + 14, statusY + 34, MUTED);
-
-        int x = mainX + 14, w = mainW - 28;
-        int toggleY = statusY + 58;
-        boolean hoverToggle = mx >= x && mx < x + w && my >= toggleY && my < toggleY + 38;
-        roundBox(c, x, toggleY, w, 38, 5, hoverToggle ? 0xFF321626 : INNER,
-                SpawnerEsp.isEnabled() ? PINK_HOT : BORDER_DIM);
-        disc(c, x + 16, toggleY + 19, 4, SpawnerEsp.isEnabled() ? GREEN : 0xFF8A7480);
-        drawText(c, "Spawner ESP: " + (SpawnerEsp.isEnabled() ? "ON" : "OFF"), x + 30, toggleY + 14, TEXT);
-        drawSwitch(c, x + w - 38, toggleY + 12, SpawnerEsp.isEnabled());
-
-        int rowY = toggleY + 50;
-        drawText(c, "Render distance", x + 2, rowY + 9, TEXT);
-        drawText(c, SpawnerEsp.getRenderDistance() + " chunks", x + 120, rowY + 9, PINK_LIGHT);
-        int minusX = x + w - 74, plusX = x + w - 34;
-        boolean hm = mx >= minusX && mx < minusX + 28 && my >= rowY && my < rowY + 28;
-        boolean hp = mx >= plusX && mx < plusX + 28 && my >= rowY && my < rowY + 28;
-        roundBox(c, minusX, rowY, 28, 28, 4, hm ? 0xFF6E1F45 : INNER, BORDER_DIM);
-        roundBox(c, plusX, rowY, 28, 28, 4, hp ? 0xFF6E1F45 : INNER, BORDER_DIM);
-        drawCentered(c, "−", minusX + 14, rowY + 9, TEXT);
-        drawCentered(c, "+", plusX + 14, rowY + 9, TEXT);
-
-        int colorY = rowY + 42;
-        drawText(c, "Outline color", x + 2, colorY + 9, TEXT);
-        disc(c, x + 104, colorY + 14, 6, SpawnerEsp.getColor());
-        int colorW = 124;
-        boolean hc = mx >= x + w - colorW && mx < x + w && my >= colorY && my < colorY + 28;
-        roundBox(c, x + w - colorW, colorY, colorW, 28, 4, hc ? 0xFF6E1F45 : INNER, BORDER_DIM);
-        drawCentered(c, "Cycle color", x + w - colorW / 2, colorY + 9, TEXT);
-
-        drawText(c, "Detected spawners: " + SpawnerEsp.getSpawnerCount(), x + 2, colorY + 42, MUTED);
-        drawText(c, "Scans loaded chunks only; no chunk loading requests.", x + 2, colorY + 59, MUTED);
     }
-
-    private void drawFreecam(DrawContext c, int mx, int my) {
-        int h = top + panelH - 14 - statusY;
-        if (h < 150) return;
-        roundBox(c, mainX, statusY, mainW, h, 6, PANEL, BORDER_DIM);
-        drawBold(c, "FREECAM", mainX + 14, statusY + 14, PINK_LIGHT);
-        drawText(c, "Move a detached camera while your player stays in place.", mainX + 14, statusY + 34, MUTED);
-        int x = mainX + 14, w = mainW - 28, toggleY = statusY + 58;
-        boolean enabled = Freecam.isEnabled();
-        boolean hover = mx >= x && mx < x + w && my >= toggleY && my < toggleY + 38;
-        roundBox(c, x, toggleY, w, 38, 5, hover ? 0xFF321626 : INNER, enabled ? PINK_HOT : BORDER_DIM);
-        disc(c, x + 16, toggleY + 19, 4, enabled ? GREEN : 0xFF8A7480);
-        drawText(c, "Freecam: " + (enabled ? "ON" : "OFF"), x + 30, toggleY + 14, TEXT);
-        drawSwitch(c, x + w - 38, toggleY + 12, enabled);
-        int rowY = toggleY + 50;
-        drawText(c, "Camera speed", x + 2, rowY + 9, TEXT);
-        drawText(c, String.format(Locale.ROOT, "%.1f", Freecam.getSpeed()), x + 120, rowY + 9, PINK_LIGHT);
-        int minusX = x + w - 74, plusX = x + w - 34;
-        boolean hm = mx >= minusX && mx < minusX + 28 && my >= rowY && my < rowY + 28;
-        boolean hp = mx >= plusX && mx < plusX + 28 && my >= rowY && my < rowY + 28;
-        roundBox(c, minusX, rowY, 28, 28, 4, hm ? 0xFF6E1F45 : INNER, BORDER_DIM);
-        roundBox(c, plusX, rowY, 28, 28, 4, hp ? 0xFF6E1F45 : INNER, BORDER_DIM);
-        drawCentered(c, "−", minusX + 14, rowY + 9, TEXT);
-        drawCentered(c, "+", plusX + 14, rowY + 9, TEXT);
-        int helpY = rowY + 44;
-        drawText(c, "WASD: move   Space: up   Left Shift: down", x + 2, helpY, MUTED);
-        drawText(c, "Move the mouse to look. Toggle OFF to return to your player.", x + 2, helpY + 18, MUTED);
-        drawText(c, "Stops automatically on death, disconnect, or world change.", x + 2, helpY + 36, MUTED);
-    }
-
-    private void drawSettings(DrawContext c, int mx, int my) {
-        int h = top + panelH - 14 - statusY;
-        if (h < 100) return;
-        roundBox(c, mainX, statusY, mainW, h, 6, PANEL, BORDER_DIM);
-        drawBold(c, "SCANNER NOTIFICATIONS", mainX + 14, statusY + 14, BLUE);
-        drawText(c, "Notify when a scanned chunk reaches your base suspicion threshold.", mainX + 14, statusY + 34, MUTED);
-
-        int rowX = mainX + 14, rowW = mainW - 28;
-        int notifyY = statusY + 58;
-        boolean enabled = SusChunkScanner.areNotificationsEnabled();
-        boolean hoverNotify = mx >= rowX && mx < rowX + rowW && my >= notifyY && my < notifyY + 38;
-        roundBox(c, rowX, notifyY, rowW, 38, 5, hoverNotify ? 0xFF321626 : INNER, enabled ? PINK_HOT : BORDER_DIM);
-        drawText(c, "Base notifications", rowX + 12, notifyY + 14, TEXT);
-        drawRight(c, enabled ? "ON" : "OFF", rowX + rowW - 14, notifyY + 14, enabled ? GREEN : MUTED);
-
-        int thresholdY = notifyY + 48;
-        drawText(c, "Suspicion threshold", rowX + 2, thresholdY + 10, TEXT);
-        drawText(c, "Scores at or above this value trigger a notification.", rowX + 2, thresholdY + 27, MUTED);
-        int valueW = 140, valueH = 30, valueX = rowX + rowW - valueW;
-        boolean hoverValue = mx >= valueX && mx < valueX + valueW && my >= thresholdY && my < thresholdY + valueH;
-        roundBox(c, valueX, thresholdY, valueW, valueH, 5, hoverValue ? 0xFF6E1F45 : 0xFF3A1228, PINK_HOT);
-        drawCentered(c, SusChunkScanner.getNotificationThreshold() + "/100  ‹  ›", valueX + valueW / 2, thresholdY + 11, TEXT);
-
-        drawText(c, "Click the threshold to cycle: 15 → 30 → 45 → 60 → 75 → 90 → 100.", rowX + 2, thresholdY + 44, PINK_LIGHT);
-        drawText(c, "Saved automatically to config/dessert-client.properties.", rowX + 2, thresholdY + 61, MUTED);
-    }
-
-    private void drawPlaceholder(DrawContext c) {
-        int h = top + panelH - 14 - statusY;
-        if (h < 40) return;
-        roundBox(c, mainX, statusY, mainW, h, 6, PANEL, BORDER_DIM);
-        drawBold(c, activePage.toUpperCase(Locale.ROOT), mainX + 14, statusY + 12, BLUE);
-        drawText(c, "Nothing here yet — this page is still being built.", mainX + 14, statusY + 32, MUTED);
-    }
-
-    // ------------------------------------------------------ scanner content
-
-    private void drawStatus(DrawContext c) {
-        roundBox(c, mainX, statusY, mainW, statusH, 6, PANEL, BORDER_DIM);
-        drawBold(c, "SCANNER STATUS", mainX + 14, statusY + 10, BLUE);
-
-        int bx = mainX + 14, by = statusY + 26, bw = mainW - 28;
-        roundBox(c, bx, by, bw, 46, 5, INNER, BORDER_FAINT);
-        disc(c, bx + 18, by + 23, 5, scannerEnabled ? GREEN : 0xFF8A7480);
-        drawBold(c, scannerEnabled ? "Scanning loaded chunks" : "Scanner paused", bx + 34, by + 9, TEXT);
-        String sub = scannerEnabled
-                ? "Analyzed " + SusChunkScanner.getScannedChunks() + " chunk(s) • " + SusChunkScanner.getFindingCount() + " suspicious result(s) • client-loaded chunks only"
-                : "Start scanning to inspect client-loaded chunks for unusual block patterns.";
-        drawText(c, textRenderer.trimToWidth(sub, bw - 44), bx + 34, by + 25, MUTED);
-
-        drawText(c, "Suspicion scale", mainX + 14, statusY + 82, MUTED);
-        int gx = mainX + 14, gy = statusY + 96, gw = mainW - 28;
-        roundFill(c, gx - 1, gy - 1, gw + 2, 14, 3, BORDER_FAINT);
-        drawGradient(c, gx, gy, gx + gw, gy + 12);
-        int ly = gy + 18;
-        drawText(c, "1% RED", gx, ly, 0xFFFF515D);
-        drawCentered(c, "50% ORANGE", gx + gw / 3, ly, 0xFFFFAD4B);
-        drawCentered(c, "75% YELLOW", gx + (gw * 2) / 3, ly, 0xFFFFE86B);
-        drawRight(c, "100% GREEN", gx + gw, ly, 0xFF64F58B);
-    }
-
-    private void drawControls(DrawContext c, int mx, int my) {
-        int gap = 10;
-        int w = (mainW - gap * 2) / 3;
-        int highlightX = mainX + w + gap;
-        drawToggle(c, mainX, controlsY, w, "◎", "Scanner", "Scanner", scannerEnabled, mx, my);
-        drawToggle(c, highlightX, controlsY, w, "◆", "Highlight Chunks", "Highlight", highlightChunks, mx, my);
-        drawToggle(c, mainX + (w + gap) * 2, controlsY, w, "▦", "Through-wall", "Walls", showThroughWalls, mx, my);
-
-        if (amethystDropdownOpen) {
-            int dropdownY = controlsY + 34;
-            boolean hover = mx >= highlightX && mx < highlightX + w && my >= dropdownY && my < dropdownY + 30;
-            roundBox(c, highlightX, dropdownY, w, 30, 5, hover ? 0xFF321626 : INNER, amethystOnly ? PINK_HOT : BORDER_DIM);
-            drawText(c, "✦ Amethyst Only", highlightX + 10, dropdownY + 11, TEXT);
-            drawSwitch(c, highlightX + w - 38, dropdownY + 8, amethystOnly);
+    private void findings(){
+        resetRows();var found=SusChunkScanner.getFindings();int count=Math.max(1,capacity(44)-1);pager(found.size(),count);
+        button("Refresh",mainX+12,bodyY+4,64,this::rebuild);
+        button("Rescan",mainX+82,bodyY+4,64,()->{SusChunkScanner.rescan();notice="Queued loaded chunks for a fresh scan.";rebuild();});
+        if(found.isEmpty())line("No chunks exceed the flag threshold. Enable the finder in Modules.","",bodyY+40);
+        for(int i=offset;i<Math.min(found.size(),offset+count);i++){
+            var f=found.get(i);int y=bodyY+34+(i-offset)*44;
+            line("Chunk "+f.chunkX()+", "+f.chunkZ()+" | "+String.format(Locale.ROOT,"%.2f pts",f.score()),"",y);
+            line("XYZ "+f.targetX()+" "+f.targetY()+" "+f.targetZ(),"",y+14);
+            button("Details",mainX+mainW-66,y,54,()->client.setScreen(new FindingDetailsScreen(this,f)));
         }
     }
-
-    private void drawToggle(DrawContext c, int x, int y, int w, String icon, String label, String shortLabel, boolean on, int mx, int my) {
-        boolean hover = mx >= x && mx < x + w && my >= y && my < y + 30;
-        int fill = on ? (hover ? 0xFF8A2A55 : 0xFF6E1F45) : (hover ? 0xFF2E1624 : PANEL);
-        roundBox(c, x, y, w, 30, 5, fill, on ? PINK_HOT : BORDER_DIM);
-        drawText(c, icon, x + 10, y + 11, on ? TEXT : PINK_LIGHT);
-        int avail = w - 10 - 16 - 28 - 14;
-        String state = on ? "ON" : "OFF";
-        String text = label + ": " + state;
-        if (textRenderer.getWidth(text) > avail) text = shortLabel + ": " + state;
-        drawText(c, textRenderer.trimToWidth(text, avail), x + 26, y + 11, TEXT);
-        drawSwitch(c, x + w - 28 - 10, y + 8, on);
-    }
-
-    private static void drawSwitch(DrawContext c, int x, int y, boolean on) {
-        roundFill(c, x, y, 28, 14, 7, on ? 0xFFFF7DB5 : 0xFF4A3A44);
-        roundFill(c, on ? x + 15 : x + 1, y + 1, 12, 12, 6, on ? 0xFFFFFFFF : 0xFFBBA5B0);
-    }
-
-    private void drawRecent(DrawContext c) {
-        int h = top + panelH - 14 - recentY;
-        if (h < 84) return;
-        roundBox(c, mainX, recentY, mainW, h, 6, PANEL, BORDER_DIM);
-        drawBold(c, "RECENT SUS CHUNKS", mainX + 14, recentY + 10, BLUE);
-        drawRight(c, SusChunkScanner.getFindingCount() + " result(s) • heuristic score, not probability", mainX + mainW - 14, recentY + 10, 0xFF9A7F8D);
-
-        int col1 = mainX + 20;
-        int col2 = mainX + (int) (mainW * 0.36);
-        int col3 = mainX + (int) (mainW * 0.62);
-        int right = mainX + mainW - 20;
-        int hy = recentY + 30;
-        drawText(c, "Chunk coordinates", col1, hy, MUTED);
-        drawText(c, "Suspicion", col2, hy, MUTED);
-        drawText(c, "Detected clue", col3, hy, MUTED);
-        drawRight(c, "Last seen", right, hy, MUTED);
-        c.fill(mainX + 10, hy + 13, mainX + mainW - 10, hy + 14, BORDER_FAINT);
-
-        var findings = SusChunkScanner.getFindings();
-        int rows = Math.min(findings.size(), Math.max(0, (h - 60) / 32));
-        if (rows == 0) {
-            drawText(c, scannerEnabled ? "Scanning loaded chunks... results will appear here." : "No results yet. Enable Scanner to begin.",
-                    mainX + 20, hy + 23, MUTED);
-            return;
-        }
-        for (int i = 0; i < rows; i++) {
-            SusChunkScanner.Finding finding = findings.get(i);
-            int ry = hy + 20 + i * 32;
-            roundBox(c, mainX + 10, ry, mainW - 20, 28, 4, ROW, BORDER_FAINT);
-            int iy = ry + 8;
-            c.fill(col1, iy, col1 + 12, iy + 12, 0xFFB5733A);
-            c.fill(col1, iy, col1 + 12, iy + 3, 0xFFE0A15F);
-            c.fill(col1 + 3, iy + 5, col1 + 6, iy + 8, 0xFF8A5528);
-            String coords = "(" + finding.chunkX() + ", " + finding.chunkZ() + ")";
-            drawText(c, textRenderer.trimToWidth(coords, Math.max(40, col2 - col1 - 26)), col1 + 20, ry + 10, TEXT);
-            int scoreColor = finding.score() >= 70 ? 0xFFFF657C : finding.score() >= 40 ? ORANGE : YELLOW;
-            drawText(c, finding.score() + "/100", col2, ry + 10, scoreColor);
-            bar(c, col2 + 42, ry + 12, 42, 5, finding.score() / 100.0f, scoreColor, YELLOW);
-            drawText(c, textRenderer.trimToWidth(finding.clue(), Math.max(30, right - col3 - 65)), col3, ry + 10, TEXT);
-            long seconds = Math.max(0, (System.currentTimeMillis() - finding.lastSeen()) / 1000);
-            drawRight(c, seconds < 60 ? seconds + "s ago" : (seconds / 60) + "m ago", right, ry + 10, MUTED);
+    private void amethyst(){
+        resetRows();var sites=SusChunkScanner.getAmethystSites().stream().filter(site->site.count()>=3).toList();
+        int count=Math.max(1,capacity(44)-1);pager(sites.size(),count);
+        button("Refresh",mainX+12,bodyY+4,64,this::rebuild);
+        if(sites.isEmpty())line("No amethyst groups yet. Enable the finder to scan.","",bodyY+40);
+        for(int i=offset;i<Math.min(sites.size(),offset+count);i++){
+            var site=sites.get(i);int y=bodyY+34+(i-offset)*44;
+            int x=site.minX()+(site.maxX()-site.minX())/2,z=site.minZ()+(site.maxZ()-site.minZ())/2,sy=site.minY()+(site.maxY()-site.minY())/2;
+            line(site.count()+" amethyst blocks | "+site.observedGrowth()+" growth changes","",y);
+            line(x+" "+sy+" "+z,"",y+14);
+            button("Copy",mainX+mainW-62,y,50,()->copy(x+" "+sy+" "+z));
         }
     }
-
-    // ------------------------------------------------------- right-hand HUD
-
-    /** Draws the live info box and returns its height. */
-    private int drawInfoBox(DrawContext c, int x, int y) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity p = mc.player;
-
-        String ping = "--";
-        String server = mc.world != null ? "Singleplayer" : "--";
-        String xyz = "--", nether = "--", facing = "--", biome = "--", speed = "--";
-        String netherLabel = "Nether";
-        ServerInfo info = mc.getCurrentServerEntry();
-        if (info != null) server = info.address;
-
-        if (p != null && mc.world != null) {
-            if (mc.getNetworkHandler() != null) {
-                PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(p.getUuid());
-                if (entry != null) ping = entry.getLatency() + "ms";
-            }
-            int bx = (int) Math.floor(p.getX()), by = (int) Math.floor(p.getY()), bz = (int) Math.floor(p.getZ());
-            xyz = bx + " " + by + " " + bz;
-            boolean inNether = World.NETHER.equals(mc.world.getRegistryKey());
-            netherLabel = inNether ? "Overworld" : "Nether";
-            long ox = inNether ? Math.round(p.getX() * 8.0) : Math.round(p.getX() / 8.0);
-            long oz = inNether ? Math.round(p.getZ() * 8.0) : Math.round(p.getZ() / 8.0);
-            nether = ox + " " + by + " " + oz;
-            facing = facingText(p.getHorizontalFacing());
-            biome = mc.world.getBiome(p.getBlockPos()).getKey().map(k -> prettify(k.getValue().getPath())).orElse("Unknown");
-            Vec3d v = p.getVelocity();
-            speed = String.format(Locale.ROOT, "%.2f b/s", Math.sqrt(v.x * v.x + v.z * v.z) * 20.0);
-        }
-
-        String[] labels = {"FPS", "Ping", "Server", "TPS", "XYZ", netherLabel, "Facing", "Biome", "Speed"};
-        String[] values = {String.valueOf(mc.getCurrentFps()), ping, server, "--", xyz, nether, facing, biome, speed};
-        int[] colors = {CYAN, TEXT, CYAN, 0xFF8A7480, TEXT, TEXT, TEXT, TEXT, TEXT};
-
-        int h = 30 + labels.length * 12 + 6;
-        roundBox(c, x, y, SIDE_COL_W, h, 6, 0xF0180C15, PINK_HOT);
-        donut(c, x + 16, y + 15, 7, 0xF0180C15);
-        drawBold(c, "Dessert Client", x + 30, y + 11, PINK);
-        for (int i = 0; i < labels.length; i++) {
-            int ly = y + 28 + i * 12;
-            String label = labels[i] + ": ";
-            drawText(c, label, x + 10, ly, TEXT);
-            int vx = x + 10 + textRenderer.getWidth(label);
-            drawText(c, textRenderer.trimToWidth(values[i], SIDE_COL_W - 20 - textRenderer.getWidth(label)), vx, ly, colors[i]);
-        }
-        return h;
+    private void savePoint(String name){
+        if(client.player==null){notice="Join a world to save a location.";return;}
+        notice=ClientWorkspace.add(name)?"Location saved.":"Could not save location (limit: 200).";rebuild();
     }
-
-    private void drawKeybinds(DrawContext c, int x, int y) {
-        String[] labels = {"Open GUI", "Module Toggle", "Click GUI Search", "Config Menu"};
-        String[] keys = {DonutSMPClient.openKeyLabel(), "R", "/", "Right Alt"};
-        int h = 28 + labels.length * 20 + 4;
-        if (y + h > top + panelH) return;
-        roundBox(c, x, y, SIDE_COL_W, h, 6, 0xF0180C15, 0xFF7A2E55);
-        donut(c, x + 16, y + 14, 6, 0xF0180C15);
-        drawBold(c, "Keybinds", x + 30, y + 10, PINK_LIGHT);
-        for (int i = 0; i < labels.length; i++) {
-            int ry = y + 28 + i * 20;
-            drawText(c, labels[i], x + 10, ry + 3, TEXT);
-            int kw = textRenderer.getWidth(keys[i]) + 12;
-            int kx = x + SIDE_COL_W - 10 - kw;
-            roundBox(c, kx, ry - 1, kw, 15, 3, 0xFF2A1722, 0xFF5A3248);
-            drawText(c, keys[i], kx + 6, ry + 3, TEXT);
+    private void waypoints(){
+        resetRows();
+        var name=new TextFieldWidget(textRenderer,mainX+12,bodyY+8,Math.max(40,mainW-112),20,Text.literal("Waypoint name"));
+        name.setMaxLength(32);name.setPlaceholder(Text.literal("Waypoint name"));addDrawableChild(name);
+        button("Save here",mainX+mainW-92,bodyY+8,80,()->savePoint(name.getText().isBlank()?"Waypoint":name.getText()));
+        var points=ClientWorkspace.points();int count=Math.max(1,capacity(40)-1);pager(points.size(),count);
+        if(points.isEmpty())line("Save your location to get started.","",bodyY+48);
+        for(int i=offset;i<Math.min(points.size(),offset+count);i++){
+            var p=points.get(i);int y=bodyY+44+(i-offset)*40;
+            line(p.name(),"",y);line(p.x()+" "+p.y()+" "+p.z(),"",y+14);
+            button("Copy",mainX+mainW-112,y,46,()->copy(p.x()+" "+p.y()+" "+p.z()));
+            button("Delete",mainX+mainW-62,y,50,()->{notice=ClientWorkspace.remove(p)?"Waypoint deleted.":"Could not save changes.";rebuild();});
         }
     }
-
-    private static String facingText(Direction d) {
-        return switch (d) {
-            case EAST -> "East (+X)";
-            case WEST -> "West (-X)";
-            case SOUTH -> "South (+Z)";
-            default -> "North (-Z)";
-        };
+    private void copy(String text){client.keyboard.setClipboard(text);notice="Copied: "+text;}
+    private void tools(){
+        resetRows();int y=bodyY+12;
+        line("COORDINATE TOOLS","",y);
+        button("Copy current XYZ",mainX+12,y+18,mainW-24,()->{if(client.player!=null)copy(client.player.getBlockX()+" "+client.player.getBlockY()+" "+client.player.getBlockZ());else notice="Join a world first.";});
+        button("Copy portal coordinates",mainX+12,y+42,mainW-24,()->{
+            if(client.player==null||client.world==null){notice="Join a world first.";return;}
+            if(World.END.equals(client.world.getRegistryKey())){notice="Portal conversion is for Overworld / Nether.";return;}
+            double scale=World.NETHER.equals(client.world.getRegistryKey())?8:0.125;
+            copy((int)Math.floor(client.player.getX()*scale)+" ~ "+(int)Math.floor(client.player.getZ()*scale));
+        });
+        button("Disable all modules",mainX+12,y+66,mainW-24,()->{SusChunkScanner.setEnabled(false);SpawnerEsp.setEnabled(false);Freecam.setEnabled(false,client);notice="All modules disabled.";});
+        line("Portal conversion uses X/Z at an 8:1 ratio.","",y+94);
     }
-
-    private static String prettify(String path) {
-        StringBuilder sb = new StringBuilder();
-        for (String part : path.split("_")) {
-            if (part.isEmpty()) continue;
-            if (sb.length() > 0) sb.append(' ');
-            sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+    private void settings(){
+        resetRows();
+        String[] labels={"Notifications: "+(SusChunkScanner.areNotificationsEnabled()?"ON":"OFF"),
+            "Alert: "+SusChunkScanner.getNotificationThreshold()+" pts", "ESP distance: "+SpawnerEsp.getRenderDistance()+" chunks", "Cycle ESP color",
+            "Amethyst only: "+SusChunkRenderer.AmethystFilter.isEnabled(), "Camera speed: "+String.format(Locale.ROOT,"%.1f",Freecam.getSpeed()),
+            "Chunk highlights: "+ClientPreferences.highlight, "Through walls: "+ClientPreferences.walls,
+            "Flag: "+SusChunkScanner.getFlagThreshold()+" pts"};
+        int count=capacity(30);pager(labels.length,count);
+        for(int i=offset;i<Math.min(labels.length,offset+count);i++){
+            final int id=i;int y=bodyY+8+(i-offset)*30;
+            button(labels[i],mainX+12,y,mainW-24,()->{
+                switch(id){
+                    case 0 -> SusChunkScanner.setNotificationsEnabled(!SusChunkScanner.areNotificationsEnabled());
+                    case 1 -> SusChunkScanner.setNotificationThreshold(SusChunkScanner.getNotificationThreshold()>=30?.5:SusChunkScanner.getNotificationThreshold()+.5);
+                    case 2 -> SpawnerEsp.adjustRenderDistance(SpawnerEsp.getRenderDistance()>=16?-14:2);
+                    case 3 -> SpawnerEsp.cycleColor();
+                    case 4 -> SusChunkRenderer.AmethystFilter.setEnabled(!SusChunkRenderer.AmethystFilter.isEnabled());
+                    case 5 -> Freecam.adjustSpeed(Freecam.getSpeed()>=10?-9.5:0.5);
+                    case 6 -> {ClientPreferences.highlight=!ClientPreferences.highlight;SusChunkRenderer.setHighlightEnabled(ClientPreferences.highlight);ClientPreferences.save();}
+                    case 7 -> {ClientPreferences.walls=!ClientPreferences.walls;SusChunkRenderer.setThroughWalls(ClientPreferences.walls);ClientPreferences.save();}
+                    case 8 -> SusChunkScanner.setFlagThreshold(SusChunkScanner.getFlagThreshold()>=30?.5:SusChunkScanner.getFlagThreshold()+.5);
+                }
+                ClientPreferences.save();
+                rebuild();
+            });
         }
-        return sb.toString();
     }
-
-    // ---------------------------------------------------------- draw helpers
-
-    private void drawText(DrawContext c, String s, int x, int y, int color) {
-        c.drawText(textRenderer, s, x, y, color, false);
+    @Override public void renderBackground(DrawContext c,int mx,int my,float delta){}
+    @Override public void render(DrawContext c,int mx,int my,float delta){
+        c.fill(0,0,width,height,0xB0080810);
+        roundFill(c,left-3,top-3,panelW+6,panelH+6,12,0x403E2448);
+        roundFill(c,left,top,panelW,panelH,10,WINDOW);
+        roundFill(c,left+6,top+6,112,panelH-12,7,0xFF191824);
+        donut(c,left+28,top+28,10,0xFF191824);
+        text(c,"DESSERT",left+44,top+20,PINK);text(c,"CLIENT / 0.6.1",left+44,top+33,MUTED);
+        text(c,page.toUpperCase(Locale.ROOT),mainX+12,top+23,TEXT);
+        text(c,textRenderer.trimToWidth("Your world. Your workspace.",mainW-24),mainX+12,top+42,MUTED);
+        c.fill(mainX+12,top+63,left+panelW-12,top+64,0xFF302C40);
+        roundFill(c,mainX,bodyY,mainW,panelH-130,7,0xFF181722);
+        c.enableScissor(mainX,bodyY,mainX+mainW,top+panelH-44);
+        for(var r:rows){
+            int labelWidth=r.value().isEmpty()?mainW-100:Math.max(30,mainW-180);
+            text(c,textRenderer.trimToWidth(r.label(),labelWidth),mainX+12,r.y(),MUTED);
+            String value=switch(r.label()){
+                case "Chunks analyzed" -> String.valueOf(SusChunkScanner.getScannedChunks());
+                case "Suspicious findings" -> String.valueOf(SusChunkScanner.getFindingCount());
+                case "Loaded spawners" -> String.valueOf(SpawnerEsp.getSpawnerCount());
+                default -> r.value();
+            };
+            if(!value.isEmpty()){String fitted=textRenderer.trimToWidth(value,Math.min(150,mainW/2));text(c,fitted,mainX+mainW-12-textRenderer.getWidth(fitted),r.y(),PINK);}
+        }
+        c.disableScissor();
+        text(c,textRenderer.trimToWidth(notice.isEmpty()?"Open: "+DonutSMPClient.openKeyLabel()+"  |  Esc: close":notice,mainW-24),mainX+12,top+panelH-16,PINK);
+        super.render(c,mx,my,delta);
     }
-
-    private void drawBold(DrawContext c, String s, int x, int y, int color) {
-        c.drawText(textRenderer, Text.literal(s).formatted(Formatting.BOLD), x, y, color, false);
+    private final class SweetButton extends ButtonWidget {
+        SweetButton(String label,int x,int y,int w,Runnable action){super(x,y,w,20,net.minecraft.text.Text.literal(label),b->action.run(),DEFAULT_NARRATION_SUPPLIER);}
+        @Override protected void drawIcon(DrawContext c,int mx,int my,float delta){
+            boolean selected=getMessage().getString().equals(page);
+            boolean hot=isHovered()||isFocused();
+            roundBox(c,getX(),getY(),getWidth(),getHeight(),5,
+                selected?0xFF512C46:hot?0xFF352C40:0xFF211F2E,selected||hot?PINK:0xFF393348);
+            String label=textRenderer.trimToWidth(getMessage().getString(),getWidth()-12);
+            text(c,label,getX()+(getWidth()-textRenderer.getWidth(label))/2,getY()+6,selected||hot?TEXT:MUTED);
+        }
     }
-
-    private void drawRight(DrawContext c, String s, int rightX, int y, int color) {
-        drawText(c, s, rightX - textRenderer.getWidth(s), y, color);
-    }
-
-    private void drawCentered(DrawContext c, String s, int centerX, int y, int color) {
-        drawText(c, s, centerX - textRenderer.getWidth(s) / 2, y, color);
-    }
-
+    private void text(DrawContext c,String s,int x,int y,int color){c.drawText(textRenderer,s,x,y,color,false);}
+    @Override public boolean shouldPause(){return false;}
     /** Filled rectangle with rounded corners of radius r. */
     private static void roundFill(DrawContext c, int x, int y, int w, int h, int r, int color) {
         if (w <= 0 || h <= 0) return;
@@ -607,128 +304,4 @@ public final class DonutClientScreen extends Screen {
         return 0xFF000000 | (r << 16) | (g << 8) | bl;
     }
 
-    // ----------------------------------------------------------------- input
-
-    @Override
-    public boolean mouseClicked(Click click, boolean doubleClick) {
-        double mouseX = click.x();
-        double mouseY = click.y();
-        if (click.button() != 0) return super.mouseClicked(click, doubleClick);
-
-        // Close (×) in the window's top-right corner.
-        if (mouseX >= left + panelW - 34 && mouseX < left + panelW && mouseY >= top && mouseY < top + 30) {
-            close();
-            return true;
-        }
-
-        for (int i = 0; i < PAGES.length; i++) {
-            if (!navVisible(i)) break;
-            int iy = navItemY(i);
-            if (mouseX >= left + 16 && mouseX < left + 8 + navW - 8 && mouseY >= iy && mouseY < iy + navItemH) {
-                activePage = PAGES[i];
-                return true;
-            }
-        }
-
-        if ("Configs".equals(activePage)) {
-            int rowX = mainX + 14, rowW = mainW - 28;
-            int notifyY = statusY + 58;
-            if (mouseX >= rowX && mouseX < rowX + rowW && mouseY >= notifyY && mouseY < notifyY + 38) {
-                SusChunkScanner.setNotificationsEnabled(!SusChunkScanner.areNotificationsEnabled());
-                return true;
-            }
-            int thresholdY = notifyY + 48;
-            int valueX = rowX + rowW - 140;
-            if (mouseX >= valueX && mouseX < valueX + 140 && mouseY >= thresholdY && mouseY < thresholdY + 30) {
-                int current = SusChunkScanner.getNotificationThreshold();
-                int[] levels = {15, 30, 45, 60, 75, 90, 100};
-                int next = levels[0];
-                for (int i = 0; i < levels.length; i++) {
-                    if (levels[i] == current) { next = levels[(i + 1) % levels.length]; break; }
-                    if (current < levels[i]) { next = levels[i]; break; }
-                }
-                SusChunkScanner.setNotificationThreshold(next);
-                return true;
-            }
-        }
-
-        if (FREECAM.equals(activePage)) {
-            int x = mainX + 14, w = mainW - 28, toggleY = statusY + 58;
-            if (mouseX >= x && mouseX < x + w && mouseY >= toggleY && mouseY < toggleY + 38) {
-                if (Freecam.isEnabled()) Freecam.setEnabled(false, MinecraftClient.getInstance());
-                else if (Freecam.setEnabled(true, MinecraftClient.getInstance())) close();
-                return true;
-            }
-            int rowY = toggleY + 50;
-            if (mouseY >= rowY && mouseY < rowY + 28) {
-                if (mouseX >= x + w - 74 && mouseX < x + w - 46) { Freecam.adjustSpeed(-0.5); return true; }
-                if (mouseX >= x + w - 34 && mouseX < x + w - 6) { Freecam.adjustSpeed(0.5); return true; }
-            }
-        }
-
-        if (SPAWNER_ESP.equals(activePage)) {
-            int x = mainX + 14, w = mainW - 28;
-            int toggleY = statusY + 58;
-            if (mouseX >= x && mouseX < x + w && mouseY >= toggleY && mouseY < toggleY + 38) {
-                SpawnerEsp.setEnabled(!SpawnerEsp.isEnabled());
-                return true;
-            }
-            int rowY = toggleY + 50;
-            if (mouseY >= rowY && mouseY < rowY + 28) {
-                if (mouseX >= x + w - 74 && mouseX < x + w - 46) {
-                    SpawnerEsp.adjustRenderDistance(-2);
-                    return true;
-                }
-                if (mouseX >= x + w - 34 && mouseX < x + w - 6) {
-                    SpawnerEsp.adjustRenderDistance(2);
-                    return true;
-                }
-            }
-            int colorY = rowY + 42;
-            if (mouseX >= x + w - 124 && mouseX < x + w && mouseY >= colorY && mouseY < colorY + 28) {
-                SpawnerEsp.cycleColor();
-                return true;
-            }
-        }
-
-        if (SCANNER.equals(activePage)) {
-            int gap = 10;
-            int w = (mainW - gap * 2) / 3;
-            int highlightX = mainX + w + gap;
-            int wallsX = mainX + (w + gap) * 2;
-
-            if (amethystDropdownOpen && mouseX >= highlightX && mouseX < highlightX + w
-                    && mouseY >= controlsY + 34 && mouseY < controlsY + 64) {
-                amethystOnly = !amethystOnly;
-                SusChunkRenderer.AmethystFilter.setEnabled(amethystOnly);
-                return true;
-            }
-
-            if (mouseY >= controlsY && mouseY < controlsY + 30 && mouseX >= mainX && mouseX < mainX + mainW) {
-                if (mouseX >= mainX && mouseX < mainX + w) {
-                    scannerEnabled = !scannerEnabled;
-                    SusChunkScanner.setEnabled(scannerEnabled);
-                    return true;
-                }
-                if (mouseX >= highlightX && mouseX < highlightX + w) {
-                    highlightChunks = !highlightChunks;
-                    SusChunkRenderer.setHighlightEnabled(highlightChunks);
-                    amethystDropdownOpen = !amethystDropdownOpen;
-                    recentY = controlsY + 40 + (amethystDropdownOpen ? 38 : 0);
-                    return true;
-                }
-                if (mouseX >= wallsX && mouseX < wallsX + w) {
-                    showThroughWalls = !showThroughWalls;
-                    SusChunkRenderer.setThroughWalls(showThroughWalls);
-                    return true;
-                }
-            }
-        }
-        return super.mouseClicked(click, doubleClick);
-    }
-
-    @Override
-    public boolean shouldPause() {
-        return false;
-    }
 }

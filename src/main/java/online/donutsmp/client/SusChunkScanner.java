@@ -1,390 +1,153 @@
 package online.donutsmp.client;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.HashSet;
-import java.util.Set;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.io.IOException;
-import java.util.Properties;
+import java.util.*;
+import java.nio.file.*;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.text.Text;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.PillarBlock;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.chunk.Chunk;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.world.chunk.Chunk;
 
-/**
- * Client-only heuristic scanner. It never requests chunks: only chunks already
- * present in the client chunk cache are inspected.
- */
+/** Incremental, bounded, client-cache-only evidence scanner. */
 public final class SusChunkScanner {
-    private static final int FOREGROUND_RADIUS_CHUNKS = 1; // Scan nearby chunks first
-    private static final int MAX_RESULTS = 40;
-    private static final Map<Long, Finding> FINDINGS = new LinkedHashMap<>();
-    private static final Set<Long> SCANNED = new HashSet<>();
-    private static final Set<Long> NOTIFIED = new HashSet<>();
-    private static final Path SETTINGS_FILE = FabricLoader.getInstance().getConfigDir().resolve("dessert-client.properties");
-    private static boolean settingsLoaded;
-    private static boolean notificationsEnabled = true;
-    private static int notificationThreshold = 60;
-    private static boolean enabled;
-    private static int scannedChunks;
-    private static int scanQueueSize;
-    private static String dimension = "";
-    private static int centerChunkX = Integer.MIN_VALUE;
-    private static int centerChunkZ = Integer.MIN_VALUE;
-    private static long lastScanAt;
-
-    private SusChunkScanner() {}
-
-    private static void loadSettings() {
-        if (settingsLoaded) return;
-        settingsLoaded = true;
-        Properties properties = new Properties();
-        if (Files.isRegularFile(SETTINGS_FILE)) {
-            try (var reader = Files.newBufferedReader(SETTINGS_FILE)) {
-                properties.load(reader);
-                notificationsEnabled = Boolean.parseBoolean(properties.getProperty("baseNotifications", "true"));
-                notificationThreshold = Math.max(15, Math.min(100,
-                        Integer.parseInt(properties.getProperty("baseNotificationThreshold", "60"))));
-            } catch (IOException | NumberFormatException ignored) {
-                // Keep safe defaults if the config file is missing or malformed.
+    private static final int BLOCK_BUDGET=2048, MAX_RESULTS=128;
+    private static final long RESCAN_MS=30000;
+    private static final Map<Long,Finding> FINDINGS=new HashMap<>();
+    private static final Map<Long,AmethystSite> SITES=new HashMap<>();
+    private static final Map<Long,Long> DONE=new HashMap<>(), ALERTS=new HashMap<>();
+    private static final Map<Long,Map<Long,Integer>> BUDS=new HashMap<>();
+    private static final Path SETTINGS=FabricLoader.getInstance().getConfigDir().resolve("dessert-scanner.properties");
+    private static ClientWorld world;
+    private static Job job;
+    private static boolean enabled,loaded,notifications=true;
+    private static double threshold=3,notifyThreshold=6;
+    private static int scanned,loadedCount;
+    private static long nextSearch;
+    private SusChunkScanner(){}
+    private static void settings(){
+        if(loaded)return;loaded=true;Properties p=new Properties();
+        if(Files.exists(SETTINGS))try(var r=Files.newBufferedReader(SETTINGS)){p.load(r);}catch(Exception e){log("read settings",e);}
+        threshold=number(p,"flagPoints",3);notifyThreshold=number(p,"notificationPoints",6);
+        notifications=Boolean.parseBoolean(p.getProperty("notifications","true"));
+    }
+    private static double number(Properties p,String key,double fallback){try{double n=Double.parseDouble(p.getProperty(key,""));return Double.isFinite(n)?Math.max(.5,Math.min(30,n)):fallback;}catch(Exception e){return fallback;}}
+    private static void save(){
+        Properties p=new Properties();p.setProperty("flagPoints",String.valueOf(threshold));p.setProperty("notificationPoints",String.valueOf(notifyThreshold));p.setProperty("notifications",String.valueOf(notifications));
+        try{Files.createDirectories(SETTINGS.getParent());Path temp=SETTINGS.resolveSibling("dessert-scanner.properties.tmp");try(var w=Files.newBufferedWriter(temp)){p.store(w,"Evidence points, not percentages");}try{Files.move(temp,SETTINGS,StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE);}catch(AtomicMoveNotSupportedException e){Files.move(temp,SETTINGS,StandardCopyOption.REPLACE_EXISTING);}}catch(Exception e){log("save settings",e);}
+    }
+    private static void log(String action,Exception e){org.slf4j.LoggerFactory.getLogger("DessertClient").warn("Could not "+action,e);}
+    public static boolean areNotificationsEnabled(){settings();return notifications;}
+    public static void setNotificationsEnabled(boolean value){settings();notifications=value;save();}
+    public static double getNotificationThreshold(){settings();return notifyThreshold;}
+    public static void setNotificationThreshold(double value){settings();if(Double.isFinite(value)){notifyThreshold=Math.max(.5,Math.min(30,value));save();}}
+    public static double getFlagThreshold(){settings();return threshold;}
+    public static void setFlagThreshold(double value){settings();if(Double.isFinite(value)){threshold=Math.max(.5,Math.min(30,value));save();}}
+    public static void setEnabled(boolean value){settings();enabled=value;if(!value)job=null;}
+    public static boolean isEnabled(){return enabled;}
+    public static int getFindingCount(){return getFindings().size();}
+    public static int getScannedChunks(){return scanned;}
+    public static String status(){return job!=null?"Inspecting "+job.chunk.getPos().x+", "+job.chunk.getPos().z:enabled?"Watching loaded chunks":"Paused";}
+    public static int getProgressPercent(){return loadedCount==0?0:Math.min(100,DONE.size()*100/loadedCount);}
+    public static List<Finding> getFindings(){settings();return FINDINGS.values().stream().filter(f->f.score()>=threshold).sorted(Comparator.comparingDouble(Finding::score).reversed().thenComparing(Comparator.comparingLong(Finding::lastSeen).reversed())).toList();}
+    public static List<AmethystSite> getAmethystSites(){return List.copyOf(SITES.values());}
+    public static void onChunkLoaded(ChunkPos p){invalidate(p);}
+    public static void onChunkUnloaded(ChunkPos p){invalidate(p);}
+    private static void invalidate(ChunkPos p){long key=p.toLong();DONE.remove(key);FINDINGS.remove(key);SITES.remove(key);BUDS.remove(key);if(job!=null&&job.chunk.getPos().toLong()==key)job=null;}
+    public static void rescan(){DONE.clear();FINDINGS.clear();SITES.clear();job=null;scanned=0;nextSearch=0;}
+    private static void reset(ClientWorld next){world=next;rescan();BUDS.clear();ALERTS.clear();loadedCount=0;}
+    public static void tick(MinecraftClient mc){
+        if(world!=mc.world)reset(mc.world);
+        if(!enabled||world==null||mc.player==null)return;
+        long now=System.currentTimeMillis();
+        if(job==null){
+            if(now<nextSearch)return;nextSearch=now+250;
+            ChunkPos center=mc.player.getChunkPos();int radius=Math.max(1,Math.min(32,mc.options.getClampedViewDistance()));
+            long oldest=Long.MAX_VALUE;Chunk chosen=null;loadedCount=0;
+            for(int ring=0;ring<=radius;ring++)for(int dx=-ring;dx<=ring;dx++)for(int dz=-ring;dz<=ring;dz++){
+                if(Math.max(Math.abs(dx),Math.abs(dz))!=ring)continue;
+                Chunk c=world.getChunkManager().getWorldChunk(center.x+dx,center.z+dz);if(c==null)continue;loadedCount++;
+                long time=DONE.getOrDefault(c.getPos().toLong(),0L);
+                if((time==0||now-time>=RESCAN_MS)&&time<oldest){oldest=time;chosen=c;}
             }
+            if(chosen==null)return;job=new Job(chosen);
+        }
+        if(world.getChunkManager().getWorldChunk(job.chunk.getPos().x,job.chunk.getPos().z)!=job.chunk){job=null;return;}
+        long deadline=System.nanoTime()+2_000_000;
+        for(int i=0;i<BLOCK_BUDGET;i++){
+            if(job.step()){complete(mc,now);job=null;break;}
+            if((i&63)==63&&System.nanoTime()>=deadline)break;
         }
     }
-
-    private static void saveSettings() {
-        Properties properties = new Properties();
-        properties.setProperty("baseNotifications", Boolean.toString(notificationsEnabled));
-        properties.setProperty("baseNotificationThreshold", Integer.toString(notificationThreshold));
-        try {
-            Files.createDirectories(SETTINGS_FILE.getParent());
-            Path temp = SETTINGS_FILE.resolveSibling(SETTINGS_FILE.getFileName() + ".tmp");
-            try (var writer = Files.newBufferedWriter(temp)) {
-                properties.store(writer, "Dessert Client settings");
+    private static void complete(MinecraftClient mc,long now){
+        long key=job.chunk.getPos().toLong();if(!DONE.containsKey(key))scanned++;DONE.put(key,now);
+        var result=EvidenceScore.evaluate(new EvidenceScore.Counts(job.chests,job.barrels,job.hoppers,job.dispensers,job.droppers,job.machines,job.work,job.decor,job.sideways,job.spawners,job.natural,job.room));
+        Map<Long,Integer> before=BUDS.put(key,job.buds);int growth=0;
+        if(before!=null)for(var e:job.buds.entrySet()){int previous=before.getOrDefault(e.getKey(),0);if(e.getValue()>previous)growth++;}
+        if(job.amethyst>0)SITES.put(key,new AmethystSite(job.ax0,job.ay0,job.az0,job.ax1+1,job.ay1+1,job.az1+1,job.amethyst,growth,now));else SITES.remove(key);
+        if(result.points()>0&&job.x0!=Integer.MAX_VALUE){
+            String dim=world.getRegistryKey().getValue().toString();
+            var f=new Finding(job.chunk.getPos().x,job.chunk.getPos().z,result.points(),String.join(" | ",result.details()),now,dim,0,job.amethyst>0,job.y0,job.y1+1,job.x0,job.z0,job.x1+1,job.z1+1,result.details());
+            FINDINGS.put(key,f);
+            if(notifications&&f.score()>=Math.max(threshold,notifyThreshold)&&now-ALERTS.getOrDefault(key,0L)>=ClientNotifications.cooldownMillis()){
+                ALERTS.put(key,now);ClientNotifications.finding(f);
             }
-            try {
-                Files.move(temp, SETTINGS_FILE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (IOException ignored) {
-                Files.move(temp, SETTINGS_FILE, StandardCopyOption.REPLACE_EXISTING);
+        }else FINDINGS.remove(key);
+        while(FINDINGS.size()>MAX_RESULTS){Long weak=FINDINGS.entrySet().stream().min(Comparator.comparingDouble(e->e.getValue().score())).orElseThrow().getKey();FINDINGS.remove(weak);}
+        ALERTS.entrySet().removeIf(e->now-e.getValue()>ClientNotifications.cooldownMillis());
+    }
+    private static final class Job {
+        final Chunk chunk;final int bottom,height;int cursor;
+        int chests,barrels,hoppers,dispensers,droppers,machines,work,decor,sideways,spawners,natural,amethyst;boolean room;
+        int x0=Integer.MAX_VALUE,y0=Integer.MAX_VALUE,z0=Integer.MAX_VALUE,x1=Integer.MIN_VALUE,y1=Integer.MIN_VALUE,z1=Integer.MIN_VALUE;
+        int ax0=Integer.MAX_VALUE,ay0=Integer.MAX_VALUE,az0=Integer.MAX_VALUE,ax1=Integer.MIN_VALUE,ay1=Integer.MIN_VALUE,az1=Integer.MIN_VALUE;
+        final BlockPos.Mutable pos=new BlockPos.Mutable();final Map<Long,Integer> buds=new HashMap<>();
+        Job(Chunk c){chunk=c;bottom=c.getBottomY();height=c.getHeight();}
+        boolean step(){
+            if(cursor>=height*256)return true;
+            int localY=cursor>>8,x=cursor&15,z=(cursor>>4)&15,y=bottom+localY;cursor++;
+            if((localY&15)==0&&x==0&&z==0&&chunk.getSectionArray()[localY>>4].isEmpty()){cursor+=4095;return cursor>=height*256;}
+            int bx=chunk.getPos().getStartX()+x,bz=chunk.getPos().getStartZ()+z;pos.set(bx,y,bz);BlockState s=chunk.getBlockState(pos);
+            boolean clue=true;
+            if(s.isOf(Blocks.CHEST)||s.isOf(Blocks.TRAPPED_CHEST))chests++;
+            else if(s.isOf(Blocks.BARREL))barrels++;
+            else if(s.isOf(Blocks.HOPPER))hoppers++;
+            else if(s.isOf(Blocks.DISPENSER))dispensers++;
+            else if(s.isOf(Blocks.DROPPER))droppers++;
+            else if(s.isOf(Blocks.OBSERVER)||s.isOf(Blocks.PISTON)||s.isOf(Blocks.STICKY_PISTON)||s.isOf(Blocks.REPEATER)||s.isOf(Blocks.COMPARATOR)||s.isOf(Blocks.REDSTONE_WIRE))machines++;
+            else if(s.isOf(Blocks.CRAFTING_TABLE)||s.isOf(Blocks.FURNACE)||s.isOf(Blocks.BLAST_FURNACE)||s.isOf(Blocks.SMOKER)||s.isOf(Blocks.ANVIL)||s.isOf(Blocks.ENCHANTING_TABLE)||s.isOf(Blocks.BREWING_STAND))work++;
+            else if(s.isOf(Blocks.GLASS)||s.isOf(Blocks.GLASS_PANE)||s.isOf(Blocks.SMOOTH_STONE)||s.isOf(Blocks.POLISHED_DEEPSLATE)||s.isOf(Blocks.DEEPSLATE_TILES))decor++;
+            else if(s.isOf(Blocks.DEEPSLATE)&&s.get(PillarBlock.AXIS)!=Direction.Axis.Y)sideways++;
+            else if(s.isOf(Blocks.SPAWNER))spawners++;
+            else clue=false;
+            if(clue)bound(bx,y,bz);
+            if(s.isOf(Blocks.MOSSY_COBBLESTONE)||s.isOf(Blocks.COBWEB)||s.isOf(Blocks.INFESTED_STONE_BRICKS))natural++;
+            int stage=s.isOf(Blocks.SMALL_AMETHYST_BUD)?1:s.isOf(Blocks.MEDIUM_AMETHYST_BUD)?2:s.isOf(Blocks.LARGE_AMETHYST_BUD)?3:s.isOf(Blocks.AMETHYST_CLUSTER)?4:0;
+            if(stage>0)buds.put(pos.asLong(),stage);
+            if(stage>0||s.isOf(Blocks.BUDDING_AMETHYST)){
+                amethyst++;ax0=Math.min(ax0,bx);ay0=Math.min(ay0,y);az0=Math.min(az0,bz);ax1=Math.max(ax1,bx);ay1=Math.max(ay1,y);az1=Math.max(az1,bz);
             }
-        } catch (IOException ignored) {
-            // Settings remain active for this session even if saving fails.
+            // One bounded room bonus per chunk: 3x3 floor/ceiling, two air layers and a solid perimeter.
+            if(!room&&s.isAir()&&x>=1&&x<=12&&z>=1&&z<=12&&y>bottom&&y+2<bottom+height&&roomAt(bx,y,bz)){room=true;bound(bx,y,bz);bound(bx+2,y+1,bz+2);}
+            return cursor>=height*256;
+        }
+        void bound(int x,int y,int z){x0=Math.min(x0,x);y0=Math.min(y0,y);z0=Math.min(z0,z);x1=Math.max(x1,x);y1=Math.max(y1,y);z1=Math.max(z1,z);}
+        boolean solid(int x,int y,int z){pos.set(x,y,z);return chunk.getBlockState(pos).isSolidBlock(world,pos);}
+        boolean air(int x,int y,int z){pos.set(x,y,z);return chunk.getBlockState(pos).isAir();}
+        boolean roomAt(int x,int y,int z){
+            if(!solid(x,y-1,z)||!solid(x+2,y-1,z+2)||!solid(x,y+2,z)||!solid(x+2,y+2,z+2))return false;
+            for(int dx=0;dx<3;dx++)for(int dz=0;dz<3;dz++)if(!solid(x+dx,y-1,z+dz)||!solid(x+dx,y+2,z+dz)||!air(x+dx,y,z+dz)||!air(x+dx,y+1,z+dz))return false;
+            for(int d=0;d<3;d++)for(int dy=0;dy<2;dy++)if(!solid(x-1,y+dy,z+d)||!solid(x+3,y+dy,z+d)||!solid(x+d,y+dy,z-1)||!solid(x+d,y+dy,z+3))return false;
+            return true;
         }
     }
-
-    public static boolean areNotificationsEnabled() {
-        loadSettings();
-        return notificationsEnabled;
+    public record AmethystSite(int minX,int minY,int minZ,int maxX,int maxY,int maxZ,int count,int observedGrowth,long lastSeen){}
+    public record Finding(int chunkX,int chunkZ,double score,String clue,long lastSeen,String dimension,int scannedAtChunkVersion,boolean hasAmethyst,int minY,int maxY,int minX,int minZ,int maxX,int maxZ,List<String> evidence){
+        public int targetX(){return minX+(maxX-minX)/2;}public int targetY(){return minY+(maxY-minY)/2;}public int targetZ(){return minZ+(maxZ-minZ)/2;}
     }
-
-    public static void setNotificationsEnabled(boolean value) {
-        loadSettings();
-        notificationsEnabled = value;
-        saveSettings();
-    }
-
-    public static int getNotificationThreshold() {
-        return notificationThreshold;
-    }
-
-    public static void setNotificationThreshold(int value) {
-        loadSettings();
-        notificationThreshold = Math.max(15, Math.min(100, value));
-        saveSettings();
-    }
-
-    private static void notifyIfAboveThreshold(MinecraftClient client, Finding finding, long key) {
-        loadSettings();
-        if (!notificationsEnabled || finding.score() < notificationThreshold || !NOTIFIED.add(key)) return;
-        if (client.player == null) return;
-
-        // Convert chunk coordinates into real Minecraft block coordinates.
-        // Use the center of the detected chunk to give a useful navigation point.
-        int blockX = (finding.chunkX() << 4) + 8;
-        int blockZ = (finding.chunkZ() << 4) + 8;
-        client.player.sendMessage(Text.literal("§dDessert Client §8» §fPossible base clue detected §7(" +
-                finding.score() + "/100) §8• §fX: " + blockX + ", Z: " + blockZ), false);
-    }
-
-    public static void setEnabled(boolean value) {
-        loadSettings();
-        enabled = value;
-        if (value) {
-            scannedChunks = 0;
-            scanQueueSize = 0;
-            SCANNED.clear();
-            NOTIFIED.clear();
-            lastScanAt = 0;
-        }
-    }
-
-    public static boolean isEnabled() {
-        return enabled;
-    }
-
-    public static int getFindingCount() {
-        return FINDINGS.size();
-    }
-
-    public static int getScannedChunks() {
-        return scannedChunks;
-    }
-
-    /** Invalidate a chunk when the client receives fresh chunk data. */
-    public static void onChunkLoaded(ChunkPos pos) {
-        invalidateChunk(pos);
-    }
-
-    /** Invalidate a chunk when it leaves the client's loaded chunk cache. */
-    public static void onChunkUnloaded(ChunkPos pos) {
-        invalidateChunk(pos);
-    }
-
-    private static void invalidateChunk(ChunkPos pos) {
-        long key = pos.toLong();
-        SCANNED.remove(key);
-        FINDINGS.remove(key);
-        NOTIFIED.remove(key);
-    }
-
-    public static int getProgressPercent() {
-        if (scanQueueSize <= 0) return enabled ? 0 : 100;
-        return Math.min(100, scannedChunks * 100 / scanQueueSize);
-    }
-
-    public static List<Finding> getFindings() {
-        return FINDINGS.values().stream()
-                .sorted(Comparator.comparingInt(Finding::score).reversed()
-                        .thenComparingLong(Finding::lastSeen))
-                .toList();
-    }
-
-    /** Called once per client tick. At most one loaded chunk is analyzed per tick. */
-    public static void tick(MinecraftClient client) {
-        if (!enabled || client.player == null || client.world == null) return;
-
-        String currentDimension = client.world.getRegistryKey().getValue().toString();
-        if (!currentDimension.equals(dimension)) {
-            dimension = currentDimension;
-            FINDINGS.clear();
-            SCANNED.clear();
-            NOTIFIED.clear();
-            scannedChunks = 0;
-            scanQueueSize = 0;
-            lastScanAt = 0;
-        }
-        if (System.currentTimeMillis() - lastScanAt < 150) return;
-        lastScanAt = System.currentTimeMillis();
-
-        ChunkPos center = client.player.getChunkPos();
-        // Track the player-centered scan window for progress only. Do not clear
-        // overlay findings when the player moves; findings are invalidated by
-        // actual client chunk load/unload events instead.
-        if (center.x != centerChunkX || center.z != centerChunkZ) {
-            centerChunkX = center.x;
-            centerChunkZ = center.z;
-            int radius = getEffectiveScanRadius(client);
-            scanQueueSize = (radius * 2 + 1) * (radius * 2 + 1);
-        }
-        // getClampedViewDistance includes the server-provided view-distance limit.
-        // Only chunks already present in the client cache are inspected.
-        int radius = getEffectiveScanRadius(client);
-        scanQueueSize = (radius * 2 + 1) * (radius * 2 + 1);
-        boolean processedChunk = false;
-        for (int priority = 0; priority <= 1; priority++) {
-            int firstRing = priority == 0 ? 0 : FOREGROUND_RADIUS_CHUNKS + 1;
-            int lastRing = priority == 0 ? Math.min(FOREGROUND_RADIUS_CHUNKS, radius) : radius;
-            if (firstRing > lastRing) continue;
-            for (int ring = firstRing; ring <= lastRing; ring++) {
-            for (int dx = -ring; dx <= ring; dx++) {
-                for (int dz = -ring; dz <= ring; dz++) {
-                    if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) continue;
-                    int cx = center.x + dx;
-                    int cz = center.z + dz;
-                    Chunk chunk = client.world.getChunkManager().getWorldChunk(cx, cz);
-                    if (chunk == null) continue; // never load a chunk to scan it
-                    long key = ChunkPos.toLong(cx, cz);
-                    // Cache completed chunk coordinates for this scan pass; this includes clean chunks.
-                    if (SCANNED.contains(key)) continue;
-                    Finding finding = inspect(chunk, currentDimension);
-                    SCANNED.add(key);
-                    processedChunk = true;
-                    scannedChunks++;
-                    if (finding != null) {
-                        FINDINGS.put(key, finding);
-                        notifyIfAboveThreshold(client, finding, key);
-                        while (FINDINGS.size() > MAX_RESULTS) {
-                            Long weakest = FINDINGS.entrySet().stream()
-                                    .min(Comparator.comparingInt(e -> e.getValue().score()))
-                                    .map(Map.Entry::getKey).orElse(null);
-                            if (weakest == null) break;
-                            FINDINGS.remove(weakest);
-                        }
-                    } else {
-                        FINDINGS.remove(key);
-                    }
-                    return;
-                }
-            }
-            }
-        }
-        // Keep completed chunks cached for this player-centered window. Clearing
-        // the set here would repeatedly rescan the first loaded chunk forever.
-    }
-
-    private static int getEffectiveScanRadius(MinecraftClient client) {
-        return Math.max(2, Math.min(32, client.options.getClampedViewDistance()));
-    }
-
-    private static Finding inspect(Chunk chunk, String dimension) {
-        int amethyst = 0;
-        int containers = 0;
-        int redstone = 0;
-        int spawners = 0;
-        int nonNaturalBlocks = 0;
-        int alteredBlocks = 0;
-        int airPockets = 0;
-        int clueMinY = Integer.MAX_VALUE;
-        int clueMaxY = Integer.MIN_VALUE;
-        int minY = chunk.getBottomY();
-        int maxY = minY + chunk.getHeight();
-        BlockPos.Mutable pos = new BlockPos.Mutable();
-        for (int y = minY; y < maxY; y++) {
-            for (int x = 0; x < 16; x++) {
-                for (int z = 0; z < 16; z++) {
-                    pos.set(chunk.getPos().getStartX() + x, y, chunk.getPos().getStartZ() + z);
-                    BlockState state = chunk.getBlockState(pos);
-                    boolean amethystBlock = state.isOf(Blocks.BUDDING_AMETHYST)
-                            || state.isOf(Blocks.AMETHYST_CLUSTER) || state.isOf(Blocks.LARGE_AMETHYST_BUD)
-                            || state.isOf(Blocks.MEDIUM_AMETHYST_BUD) || state.isOf(Blocks.SMALL_AMETHYST_BUD);
-                    boolean containerBlock = state.isOf(Blocks.CHEST) || state.isOf(Blocks.TRAPPED_CHEST)
-                            || state.isOf(Blocks.BARREL) || state.isOf(Blocks.DISPENSER)
-                            || state.isOf(Blocks.DROPPER) || state.isOf(Blocks.HOPPER);
-                    boolean redstoneBlock = state.isOf(Blocks.OBSERVER) || state.isOf(Blocks.PISTON)
-                            || state.isOf(Blocks.STICKY_PISTON) || state.isOf(Blocks.REDSTONE_WIRE);
-                    boolean spawnerBlock = state.isOf(Blocks.SPAWNER);
-                    // These utility/admin blocks are not part of normal world generation.
-                    boolean nonNaturalBlock = state.isOf(Blocks.COMMAND_BLOCK)
-                            || state.isOf(Blocks.CHAIN_COMMAND_BLOCK)
-                            || state.isOf(Blocks.REPEATING_COMMAND_BLOCK)
-                            || state.isOf(Blocks.BARRIER)
-                            || state.isOf(Blocks.STRUCTURE_BLOCK)
-                            || state.isOf(Blocks.JIGSAW)
-                            || state.isOf(Blocks.STRUCTURE_VOID)
-                            || state.isOf(Blocks.LIGHT);
-                    if (amethystBlock) amethyst++;
-                    if (containerBlock) containers++;
-                    if (redstoneBlock) redstone++;
-                    if (spawnerBlock) spawners++;
-                    if (nonNaturalBlock) nonNaturalBlocks++;
-                    if (isLikelyPlayerPlacedBlock(state)) alteredBlocks++;
-                    if (amethystBlock || containerBlock || redstoneBlock || spawnerBlock || nonNaturalBlock) {
-                        clueMinY = Math.min(clueMinY, y);
-                        clueMaxY = Math.max(clueMaxY, y);
-                    }
-
-                    // Count underground air blocks fully surrounded by solid blocks.
-                    // Ignore chunk borders to avoid checking adjacent chunks.
-                    if (x > 0 && x < 15 && z > 0 && z < 15 && y > minY + 1
-                            && y < maxY - 1 && state.isAir()) {
-                        int bx = chunk.getPos().getStartX() + x;
-                        int bz = chunk.getPos().getStartZ() + z;
-                        if (isSolid(chunk, bx + 1, y, bz)
-                                && isSolid(chunk, bx - 1, y, bz)
-                                && isSolid(chunk, bx, y + 1, bz)
-                                && isSolid(chunk, bx, y - 1, bz)
-                                && isSolid(chunk, bx, y, bz + 1)
-                                && isSolid(chunk, bx, y, bz - 1)) {
-                            airPockets++;
-                        }
-                    }
-                }
-            }
-        }
-
-        int score = 0;
-        List<String> clues = new ArrayList<>();
-        if (amethyst > 0) {
-            score += Math.min(35, 15 + amethyst * 2);
-            clues.add("Amethyst formation (" + amethyst + ")");
-        }
-        if (containers > 0) {
-            score += Math.min(35, 12 + containers * 8);
-            clues.add("Storage/utility blocks (chests, barrels, hoppers, dispensers, droppers: " + containers + ")");
-        }
-        if (redstone >= 8) {
-            score += Math.min(20, 5 + redstone);
-            clues.add("Redstone machinery (" + redstone + ")");
-        }
-        // On DonutSMP, spawners are not naturally generated, so flag them as a strong base clue.
-        if (spawners > 0) {
-            score += Math.min(55, 40 + (spawners - 1) * 5);
-            clues.add("Spawner (" + spawners + ")");
-        }
-        if (nonNaturalBlocks > 0) {
-            score += Math.min(55, 40 + (nonNaturalBlocks - 1) * 5);
-            clues.add("Non-natural utility blocks (" + nonNaturalBlocks + ")");
-        }
-        if (alteredBlocks >= 12) {
-            score += Math.min(20, 5 + alteredBlocks / 8);
-            clues.add("Man-made/altered blocks (" + alteredBlocks + ")");
-        }
-        if (airPockets >= 3) {
-            score += Math.min(20, 5 + airPockets / 3);
-            clues.add("Enclosed air pockets (" + airPockets + ")");
-        }
-        if (clues.size() >= 2) score += 10;
-        score = Math.min(100, score);
-        if (score < 15 || clues.isEmpty()) return null;
-
-        String clue = String.join(" • ", clues);
-        if (clueMinY == Integer.MAX_VALUE) {
-            clueMinY = Math.max(minY, minY + chunk.getHeight() / 2 - 8);
-            clueMaxY = Math.min(maxY - 1, clueMinY + 16);
-        }
-        // Keep the highlight close to detected clues instead of spanning the entire world height.
-        clueMinY = Math.max(minY, clueMinY - 3);
-        clueMaxY = Math.min(maxY, clueMaxY + 4);
-        return new Finding(chunk.getPos().x, chunk.getPos().z, score, clue,
-                System.currentTimeMillis(), dimension, 0, amethyst > 0, clueMinY, clueMaxY);
-    }
-
-    private static boolean isSolid(Chunk chunk, int x, int y, int z) {
-        BlockState state = chunk.getBlockState(new BlockPos(x, y, z));
-        return !state.isAir() && state.isSolidBlock(MinecraftClient.getInstance().world, new BlockPos(x, y, z));
-    }
-
-    private static boolean isLikelyPlayerPlacedBlock(BlockState state) {
-        return state.isOf(Blocks.CHEST) || state.isOf(Blocks.TRAPPED_CHEST)
-                || state.isOf(Blocks.BARREL) || state.isOf(Blocks.CRAFTING_TABLE)
-                || state.isOf(Blocks.FURNACE) || state.isOf(Blocks.BLAST_FURNACE)
-                || state.isOf(Blocks.SMOKER) || state.isOf(Blocks.ANVIL)
-                || state.isOf(Blocks.OBSERVER) || state.isOf(Blocks.PISTON)
-                || state.isOf(Blocks.STICKY_PISTON) || state.isOf(Blocks.REDSTONE_WIRE)
-                || state.isOf(Blocks.REPEATER) || state.isOf(Blocks.COMPARATOR)
-                || state.isOf(Blocks.HOPPER) || state.isOf(Blocks.DISPENSER)
-                || state.isOf(Blocks.DROPPER) || state.isOf(Blocks.GLASS)
-                || state.isOf(Blocks.GLASS_PANE) || state.isOf(Blocks.OAK_PLANKS)
-                || state.isOf(Blocks.SPRUCE_PLANKS) || state.isOf(Blocks.BIRCH_PLANKS)
-                || state.isOf(Blocks.JUNGLE_PLANKS) || state.isOf(Blocks.ACACIA_PLANKS)
-                || state.isOf(Blocks.DARK_OAK_PLANKS) || state.isOf(Blocks.MANGROVE_PLANKS)
-                || state.isOf(Blocks.CHERRY_PLANKS) || state.isOf(Blocks.BAMBOO_PLANKS)
-                || state.isOf(Blocks.CRIMSON_PLANKS) || state.isOf(Blocks.WARPED_PLANKS)
-                || state.isOf(Blocks.BRICKS) || state.isOf(Blocks.STONE_BRICKS)
-                || state.isOf(Blocks.POLISHED_ANDESITE) || state.isOf(Blocks.POLISHED_DIORITE)
-                || state.isOf(Blocks.POLISHED_GRANITE) || state.isOf(Blocks.COBBLESTONE);
-    }
-
-    public record Finding(int chunkX, int chunkZ, int score, String clue, long lastSeen,
-                          String dimension, int scannedAtChunkVersion, boolean hasAmethyst,
-                          int minY, int maxY) {}
 }

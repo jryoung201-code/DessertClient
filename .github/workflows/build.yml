@@ -2,7 +2,8 @@ name: Build DonutSMP Client
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, dessert-overhaul]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -44,6 +45,7 @@ jobs:
           retention-days: 14
 
       - name: Publish JAR to GitHub Releases
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.mod_version.outputs.version }}

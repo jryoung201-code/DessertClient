@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "online.donutsmp.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "FreecamEntityMixin",
+    "FreecamInputMixin",
+    "FreecamInteractionMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
