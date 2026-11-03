@@ -10,7 +10,7 @@ import org.lwjgl.glfw.GLFW;
 
 public final class DonutSMPClient implements ClientModInitializer {
     private static KeyBinding openClientKey;
-    private static KeyBinding scannerKey,spawnerKey,cameraKey,bookmarkKey,disableKey,donkeyKey;
+    private static KeyBinding scannerKey,spawnerKey,cameraKey,bookmarkKey,disableKey;
     private static KeyBinding shortcut(String name){return KeyBindingHelper.registerKeyBinding(new KeyBinding("key.donutsmpclient."+name,InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_UNKNOWN,KeyBinding.Category.MISC));}
 
 
@@ -32,13 +32,11 @@ public final class DonutSMPClient implements ClientModInitializer {
 
         scannerKey=shortcut("scanner");spawnerKey=shortcut("spawners");cameraKey=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.donutsmpclient.freecam",InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_F6,KeyBinding.Category.MISC));
         bookmarkKey=shortcut("waypoint");disableKey=shortcut("disable_all");
-        donkeyKey=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.donutsmpclient.donkey_cycle",InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_F7,KeyBinding.Category.MISC));
         ClientPreferences.load();
         SusChunkRenderer.register();
         SpawnerEsp.register();
         Freecam.register();
         ClientNotifications.register();
-        DonkeyCycle.register();
 
         ClientChunkEvents.CHUNK_LOAD.register((world, chunk) ->
                 SusChunkScanner.onChunkLoaded(chunk.getPos()));
@@ -47,10 +45,6 @@ public final class DonutSMPClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             SusChunkScanner.tick(client);
-            while(donkeyKey.wasPressed()){
-                if(DonkeyCycle.active())DonkeyCycle.stop();
-                else if(client.currentScreen==null)client.setScreen(new DonkeyCycleScreen(new DonutClientScreen()));
-            }
             while(scannerKey.wasPressed())if(client.currentScreen==null)SusChunkScanner.setEnabled(!SusChunkScanner.isEnabled());
             while(spawnerKey.wasPressed())if(client.currentScreen==null)SpawnerEsp.setEnabled(!SpawnerEsp.isEnabled());
             while(cameraKey.wasPressed())if(client.currentScreen==null)Freecam.setEnabled(!Freecam.isEnabled(),client);
@@ -59,7 +53,7 @@ public final class DonutSMPClient implements ClientModInitializer {
                 client.player.sendMessage(net.minecraft.text.Text.literal(saved?"Dessert: waypoint saved.":"Dessert: could not save waypoint."),true);
             }
             while(disableKey.wasPressed()){
-                SusChunkScanner.setEnabled(false);SpawnerEsp.setEnabled(false);Freecam.setEnabled(false,client);DonkeyCycle.stop();
+                SusChunkScanner.setEnabled(false);SpawnerEsp.setEnabled(false);Freecam.setEnabled(false,client);
             }
             while (openClientKey.wasPressed()) {
                 if (client.currentScreen == null) {

@@ -32,7 +32,7 @@ public final class Freecam {
     public static void look(double dx,double dy){if(camera!=null)camera.changeLookDirection(dx,dy);}
     public static boolean setEnabled(boolean value,MinecraftClient mc){
         if(!value){stop(mc);return true;}if(enabled)return true;
-        if(DonkeyCycle.active()||mc.player==null||mc.world==null||!mc.player.isAlive()||mc.player.hasVehicle())return false;
+        if(mc.player==null||mc.world==null||!mc.player.isAlive()||mc.player.hasVehicle())return false;
         player=mc.player;world=mc.world;previousCamera=mc.getCameraEntity();perspective=mc.options.getPerspective();
         camera=new Camera(world);
         camera.setPosition(player.getX(),player.getEyeY()-camera.getStandingEyeHeight(),player.getZ());

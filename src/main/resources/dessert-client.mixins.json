@@ -5,9 +5,7 @@
   "client": [
     "FreecamEntityMixin",
     "FreecamInputMixin",
-    "FreecamInteractionMixin",
-    "MountInventoryAccessor",
-    "DonkeyConnectionMixin"
+    "FreecamInteractionMixin"
   ],
   "injectors": {
     "defaultRequire": 1

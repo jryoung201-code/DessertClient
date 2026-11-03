@@ -4,6 +4,5 @@
   "key.donutsmpclient.spawners": "Dessert: Toggle Spawner ESP",
   "key.donutsmpclient.freecam": "Dessert: Toggle Freecam",
   "key.donutsmpclient.waypoint": "Dessert: Save waypoint",
-  "key.donutsmpclient.disable_all": "Dessert: Disable all modules",
-  "key.donutsmpclient.donkey_cycle": "Dessert: Donkey cycle controls / stop"
+  "key.donutsmpclient.disable_all": "Dessert: Disable all modules"
 }

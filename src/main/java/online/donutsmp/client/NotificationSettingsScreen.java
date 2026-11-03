@@ -23,9 +23,10 @@ public final class NotificationSettingsScreen extends Screen {
             button("Sound: "+ClientNotifications.sound,x+half+8,78,half,()->{ClientNotifications.sound=!ClientNotifications.sound;init();});
             button("Duration: "+ClientNotifications.duration+"s",x,104,half,()->{ClientNotifications.duration=ClientNotifications.duration>=20?2:ClientNotifications.duration+1;init();});
             button("Cooldown: "+ClientNotifications.cooldown+"s",x+half+8,104,half,()->{ClientNotifications.cooldown=ClientNotifications.cooldown>=600?10:ClientNotifications.cooldown+10;init();});
+            button("Corner: "+ClientNotifications.positionName(),x,130,w,()->{ClientNotifications.cyclePosition();init();});
         }
         button(page==0?"Appearance >":"< Text",x,height-58,90,()->{capture();page=1-page;init();});
-        button("Test",x+98,height-58,55,()->{capture();ClientNotifications.preview();status="Preview shown (chat needs an open world).";});
+        button("Preview",x+98,height-58,55,()->{capture();ClientNotifications.testSound();client.setScreen(new NotificationPreviewScreen(this));});
         button("Save",width-82,height-58,62,()->{capture();status=ClientNotifications.save()?"Saved.":"Could not save; changes remain active this session.";});
         button("Back",x,height-30,60,this::close);
     }
