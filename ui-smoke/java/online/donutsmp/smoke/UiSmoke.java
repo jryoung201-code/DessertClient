@@ -27,6 +27,7 @@ public final class UiSmoke implements ClientModInitializer {
         if(phase==2&&mc.player!=null&&mc.world!=null&&mc.getServer()!=null){
             phase=3;ticks=0;var server=mc.getServer();
             server.execute(()->{
+                for(int cx=-1;cx<=0;cx++)for(int cz=-1;cz<=0;cz++)server.getOverworld().getChunk(cx,cz);
                 var source=server.getCommandSource();
                 for(String command:new String[]{"gamemode creative @a","fill -10 80 -10 10 95 15 air","fill -10 80 -10 10 80 15 stone","tp @a 0 81 0 0 10","setblock -2 81 6 spawner","setblock 2 81 6 spawner","fill 1 81 4 3 84 4 stone","time set noon","weather clear"})
                     server.getCommandManager().parseAndExecute(source,command);
