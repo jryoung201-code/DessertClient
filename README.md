@@ -74,3 +74,5 @@ All three real modules remain: SUS Chunk Finder, Spawner ESP and Freecam. The re
 ## Highlight fix (0.7.1)
 
 World outlines draw at the end of the main world pass. Spawner ESP refreshes nearby chunks every five ticks, while keeping a bounded background sweep for more distant loaded chunks. Removed or replaced spawners are cleared on refresh.
+
+Verified in a real local Minecraft world: exposed and stone-covered spawners both receive pink outlines; disabling ESP removes them. The opt-in development smoke test captures enabled and disabled frames and is excluded from the release JAR.

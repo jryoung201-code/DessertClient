@@ -7,7 +7,7 @@ import net.minecraft.util.Identifier;
 public final class HudOverlay {
     public static void register(){HudElementRegistry.addLast(Identifier.of("donutsmpclient","workspace_hud"),(c,tick)->{
         var mc=MinecraftClient.getInstance();if(!UiTheme.hud||mc.options.hudHidden||mc.player==null||mc.world==null)return;
-        List<String> lines=new ArrayList<>();lines.add("Dessert Client  0.7.0");
+        List<String> lines=new ArrayList<>();lines.add("Dessert Client  0.7.1");
         if(UiTheme.stats){String ping="--";if(mc.getNetworkHandler()!=null){var entry=mc.getNetworkHandler().getPlayerListEntry(mc.player.getUuid());if(entry!=null)ping=entry.getLatency()+" ms";}lines.add("FPS "+mc.getCurrentFps()+"  |  Ping "+ping);}
         if(UiTheme.coordinates)lines.add("XYZ "+mc.player.getBlockX()+" / "+mc.player.getBlockY()+" / "+mc.player.getBlockZ());
         if(UiTheme.biome)lines.add(mc.world.getBiome(mc.player.getBlockPos()).getKey().map(k->k.getValue().getPath().replace('_',' ')).orElse("Unknown biome"));
