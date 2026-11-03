@@ -103,7 +103,7 @@ public final class SpawnerEsp {
 
     public static void register() {
         ClientTickEvents.END_CLIENT_TICK.register(SpawnerEsp::tick);
-        WorldRenderEvents.BEFORE_DEBUG_RENDER.register(context -> {
+        WorldRenderEvents.END_MAIN.register(context -> {
             MinecraftClient client = MinecraftClient.getInstance();
             if (!enabled || client.world == null || client.player == null) return;
             MatrixStack matrices = context.matrices();
@@ -148,12 +148,16 @@ public final class SpawnerEsp {
         // Remove entries from chunks that are no longer loaded; never request a chunk load.
         SPAWNERS.removeIf(pos -> !client.world.getChunkManager().isChunkLoaded(pos.getX() >> 4, pos.getZ() >> 4));
 
+        // Refresh the surrounding 3x3 first, including newly placed/removed spawners.
+        // The background sweep alone can take many seconds to reach the player.
         if (++tickCounter < 5) return;
         tickCounter = 0;
 
         int playerChunkX = client.player.getChunkPos().x;
         int playerChunkZ = client.player.getChunkPos().z;
         int radius = Math.min(renderDistance, Math.max(2, client.options.getClampedViewDistance()));
+        for (int dz = -1; dz <= 1; dz++)
+            for (int dx = -1; dx <= 1; dx++) refreshChunk(client, playerChunkX + dx, playerChunkZ + dz);
         if (cursorX == Integer.MIN_VALUE) {
             cursorX = playerChunkX - radius;
             cursorZ = playerChunkZ - radius;
@@ -175,14 +179,18 @@ public final class SpawnerEsp {
 
             int cx = cursorX++;
             int cz = cursorZ;
-            if (!client.world.getChunkManager().isChunkLoaded(cx, cz)) continue;
-            WorldChunk chunk = client.world.getChunkManager().getWorldChunk(cx, cz);
-            if (chunk == null) continue;
-            for (BlockEntity entity : chunk.getBlockEntities().values()) {
-                if (entity instanceof MobSpawnerBlockEntity && entity.getCachedState().isOf(Blocks.SPAWNER)) {
-                    SPAWNERS.add(entity.getPos().toImmutable());
-                }
-            }
+            refreshChunk(client, cx, cz);
+        }
+    }
+
+    private static void refreshChunk(MinecraftClient client, int cx, int cz) {
+        if (!client.world.getChunkManager().isChunkLoaded(cx, cz)) return;
+        WorldChunk chunk = client.world.getChunkManager().getWorldChunk(cx, cz);
+        if (chunk == null) return;
+        SPAWNERS.removeIf(pos -> (pos.getX() >> 4) == cx && (pos.getZ() >> 4) == cz);
+        for (BlockEntity entity : chunk.getBlockEntities().values()) {
+            if (entity instanceof MobSpawnerBlockEntity && chunk.getBlockState(entity.getPos()).isOf(Blocks.SPAWNER))
+                SPAWNERS.add(entity.getPos().toImmutable());
         }
     }
 }

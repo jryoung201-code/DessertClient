@@ -74,7 +74,7 @@ public final class SusChunkRenderer {
     }
 
     public static void register() {
-        WorldRenderEvents.BEFORE_DEBUG_RENDER.register(context -> {
+        WorldRenderEvents.END_MAIN.register(context -> {
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.world == null || client.player == null ||
                     ((!highlightEnabled || !SusChunkScanner.isEnabled()) && System.currentTimeMillis()>=previewUntil)) {
