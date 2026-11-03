@@ -55,3 +55,26 @@ tasks.register('policyTest', JavaExec) {
     mainClass = 'EvidenceScoreTest'
 }
 tasks.named('check') { dependsOn tasks.named('policyTest') }
+
+// Opt-in real-client visual smoke test; no test code is included in the release JAR.
+if (project.hasProperty('uiSmoke')) {
+    sourceSets {
+        uiSmoke {
+            java.srcDir 'ui-smoke/java'
+            resources.srcDir 'ui-smoke/resources'
+            compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+            runtimeClasspath += sourceSets.main.runtimeClasspath + output
+        }
+    }
+    loom {
+        mods {
+            donutsmpclient { sourceSet sourceSets.main }
+            dessert_ui_smoke { sourceSet sourceSets.uiSmoke }
+        }
+        runs {
+            client {
+                programArgs '--width', '1600', '--height', '900'
+            }
+        }
+    }
+}

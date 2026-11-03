@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"dessert_ui_smoke","version":"1","environment":"client","entrypoints":{"client":["online.donutsmp.smoke.UiSmoke"]},"depends":{"donutsmpclient":"*"}}
