@@ -45,7 +45,7 @@ jobs:
           retention-days: 14
 
       - name: Publish JAR to GitHub Releases
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dessert-overhaul') && github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.mod_version.outputs.version }}
@@ -53,6 +53,6 @@ jobs:
           body: |
             DonutSMP Client version ${{ steps.mod_version.outputs.version }} for Minecraft Java 1.21.11.
             Requires Fabric Loader and Fabric API. Mod Menu integration is optional.
-          files: build/libs/*.jar
+          files: build/libs/dessert-client-${{ steps.mod_version.outputs.version }}.jar
           fail_on_unmatched_files: true
           make_latest: true
