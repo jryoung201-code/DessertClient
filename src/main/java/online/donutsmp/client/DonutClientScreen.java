@@ -17,13 +17,13 @@ import net.minecraft.world.World;
 public final class DonutClientScreen extends Screen {
     private static final int WINDOW=UiTheme.WINDOW, TEXT=UiTheme.TEXT, MUTED=UiTheme.MUTED;
     private static String page="Modules";
-    private static final String[] PAGES={"Overview","Modules","Findings","Amethyst","Waypoints","Tools","Settings","Alerts","HUD","Theme"};
+    private static final String[] PAGES={"Overview","Modules","Findings","Chunk Clues","Amethyst","Waypoints","Tools","Settings","Alerts","HUD","Theme"};
     private int left,top,panelW,panelH,mainX,mainW,bodyY,offset,navW,headerH,navOffset;
     private int selectedModule;
     private boolean details;
     private int listW,detailX,detailW;
-    private final String[] moduleNames={"SUS Chunk Finder","Spawner ESP","Freecam"};
-    private final String[] moduleDescriptions={"Evidence points from loaded chunks.","Highlights loaded mob spawners.","Detached camera; your body stays behind."};
+    private final String[] moduleNames={"SUS Chunk Finder","Spawner ESP","Freecam","Chunk Clues"};
+    private final String[] moduleDescriptions={"Evidence points from loaded chunks.","Highlights loaded mob spawners.","Detached camera; your body stays behind.","Block clues and relative chunk arrival gaps."};
     private String query="", notice="";
     private TextFieldWidget search;
     public DonutClientScreen(){super(Text.literal("Dessert Client"));}
@@ -59,6 +59,7 @@ public final class DonutClientScreen extends Screen {
             case "Modules" -> modules();
             case "Findings" -> findings();
             case "Amethyst" -> amethyst();
+            case "Chunk Clues" -> chunkClues();
             case "Waypoints" -> waypoints();
             case "Tools" -> tools();
             case "Settings" -> settings();
@@ -87,7 +88,7 @@ public final class DonutClientScreen extends Screen {
     private int capacity(int rowHeight){return Math.max(1,(top+panelH-54-bodyY)/rowHeight);}
     private void overview(){
         resetRows();
-        line("YOUR WORKSPACE","Dessert Client 0.7.2",bodyY+12);
+        line("YOUR WORKSPACE","Dessert Client 0.8.0",bodyY+12);
         if(capacity(24)>3)line("Scanner",SusChunkScanner.isEnabled()?"Running":"Paused",bodyY+42);
         if(capacity(24)>3)line("Chunks analyzed",String.valueOf(SusChunkScanner.getScannedChunks()),bodyY+64);
         if(capacity(24)>4)line("Suspicious findings",String.valueOf(SusChunkScanner.getFindingCount()),bodyY+86);
@@ -106,17 +107,18 @@ public final class DonutClientScreen extends Screen {
     private void rebuildModuleSearch(){int cursor=search.getCursor();rebuild();search.setCursor(cursor,false);setFocused(search);}
     private final List<ClickableWidget> moduleButtons=new ArrayList<>();
     private int moduleHeight(){return panelH<300?44:56;}
-    private boolean moduleOn(int index){return index==0?SusChunkScanner.isEnabled():index==1?SpawnerEsp.isEnabled():Freecam.isEnabled();}
+    private boolean moduleOn(int index){return index==0?SusChunkScanner.isEnabled():index==1?SpawnerEsp.isEnabled():index==2?Freecam.isEnabled():ChunkClues.isEnabled();}
     private void toggleModule(int index){
         if(index==0)SusChunkScanner.setEnabled(!SusChunkScanner.isEnabled());
         if(index==1)SpawnerEsp.setEnabled(!SpawnerEsp.isEnabled());
         if(index==2){if(Freecam.isEnabled())Freecam.setEnabled(false,client);else if(Freecam.setEnabled(true,client)){close();return;}else notice="Join a world and leave your vehicle first.";}
+        if(index==3)ChunkClues.setEnabled(!ChunkClues.isEnabled());
         rebuild();
     }
-    private void configureModule(int index){page="Settings";offset=index==0?0:index==1?2:5;init();}
+    private void configureModule(int index){if(index==3){navigate("Chunk Clues");return;}page="Settings";offset=index==0?0:index==1?2:5;init();}
     private void refreshModules(){
         for(var b:moduleButtons)remove(b);moduleButtons.clear();resetRows();
-        List<Integer> matches=new ArrayList<>();for(int i=0;i<3;i++)if(moduleNames[i].toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT)))matches.add(i);
+        List<Integer> matches=new ArrayList<>();for(int i=0;i<moduleNames.length;i++)if(moduleNames[i].toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT)))matches.add(i);
         int count=Math.max(1,(top+panelH-48-bodyY)/(moduleHeight()+8));
         if(matches.size()>count)pager(matches.size(),count);
         for(int row=offset;row<Math.min(matches.size(),offset+count);row++){
@@ -144,6 +146,21 @@ public final class DonutClientScreen extends Screen {
             line("Chunk "+f.chunkX()+", "+f.chunkZ()+" | "+String.format(Locale.ROOT,"%.2f pts",f.score()),"",y);
             line("XYZ "+f.targetX()+" "+f.targetY()+" "+f.targetZ(),"",y+14);
             button("Details",mainX+mainW-66,y,54,()->client.setScreen(new FindingDetailsScreen(this,f)));
+        }
+    }
+    private void chunkClues(){
+        resetRows();int half=(mainW-30)/2;
+        button("Timing only: "+ChunkClues.timing(),mainX+12,bodyY+4,half,()->{ChunkClues.toggleTiming();rebuild();});
+        button("Strong only: "+ChunkClues.strongOnly(),mainX+18+half,bodyY+4,half,()->{ChunkClues.toggleStrong();rebuild();});
+        button("Refresh list",mainX+12,bodyY+28,half,this::rebuild);
+        button("Clear session clues",mainX+18+half,bodyY+28,half,()->{ChunkClues.clear();rebuild();});
+        var found=ChunkClues.findings();int count=Math.max(1,(top+panelH-54-bodyY-62)/38);pager(found.size(),count);
+        if(found.isEmpty())line(ChunkClues.isEnabled()?"Calibrating / no matching clues yet.":"Enable Chunk Clues in Modules first.","",bodyY+62);
+        for(int i=offset;i<Math.min(found.size(),offset+count);i++){
+            var f=found.get(i);int y=bodyY+60+(i-offset)*38;
+            line("Chunk "+f.x()+", "+f.z()+" | "+f.label(),"",y);
+            line(f.repeat()?"Seen by this client earlier this session":"Unconfirmed history; inspect evidence", "",y+14);
+            button("Details",mainX+mainW-66,y,54,()->client.setScreen(new ChunkClueDetailsScreen(this,f)));
         }
     }
     private void amethyst(){
@@ -188,7 +205,7 @@ public final class DonutClientScreen extends Screen {
             double scale=World.NETHER.equals(client.world.getRegistryKey())?8:0.125;
             copy((int)Math.floor(client.player.getX()*scale)+" ~ "+(int)Math.floor(client.player.getZ()*scale));
         });
-        button("Disable all modules",mainX+12,y+66,mainW-24,()->{SusChunkScanner.setEnabled(false);SpawnerEsp.setEnabled(false);Freecam.setEnabled(false,client);notice="All modules disabled.";});
+        button("Disable all modules",mainX+12,y+66,mainW-24,()->{SusChunkScanner.setEnabled(false);SpawnerEsp.setEnabled(false);ChunkClues.setEnabled(false);Freecam.setEnabled(false,client);notice="All modules disabled.";});
         line("Portal conversion uses X/Z at an 8:1 ratio.","",y+94);
     }
     private void settings(){
@@ -230,7 +247,7 @@ public final class DonutClientScreen extends Screen {
         UiTheme.donut(c,left+27,top+headerH/2,headerH<60?13:18);
         if(panelW>600){c.getMatrices().pushMatrix();c.getMatrices().translate(left+55,top+headerH/2-15);c.getMatrices().scale(1.6f,1.6f);text(c,"Dessert Client",0,0,TEXT);c.getMatrices().popMatrix();}
         else text(c,"Dessert Client",left+52,top+headerH/2-9,TEXT);
-        text(c,"v0.7.2 | Fabric 1.21.11",left+52,top+headerH/2+6,MUTED);
+        text(c,"v0.8.0 | Fabric 1.21.11",left+52,top+headerH/2+6,MUTED);
         if(panelH>380)UiTheme.desert(c,left+5,top+panelH-78,navW-2,73);
         text(c,page,mainX+2,top+headerH+15,TEXT);
         if(!(page.equals("Modules")&&mainW<320))text(c,textRenderer.trimToWidth(subtitle(),page.equals("Modules")?Math.max(30,mainW/2-20):mainW-12),mainX+2,top+headerH+30,MUTED);
@@ -258,12 +275,12 @@ public final class DonutClientScreen extends Screen {
         int x=detailX,y=bodyY,w=detailW,h=top+panelH-48-y;
         roundBox(c,x,y,w,h,7,0xEB241914,UiTheme.BORDER);
         roundBox(c,x+8,y+8,w-16,96,5,0xFF291B19,UiTheme.BORDER);
-        UiTheme.icon(c,selectedModule,x+w/2-25,y+27,50,selectedModule==1?0xFFFF86C8:UiTheme.accent());
+        UiTheme.icon(c,selectedModule==3?0:selectedModule,x+w/2-25,y+27,50,selectedModule==1?0xFFFF86C8:UiTheme.accent());
         text(c,moduleNames[selectedModule],x+10,y+116,TEXT);
         var desc=textRenderer.wrapLines(Text.literal(moduleDescriptions[selectedModule]),w-20);int ly=y+134;
         for(var line:desc){if(ly>top+panelH-145)break;c.drawText(textRenderer,line,x+10,ly,MUTED,false);ly+=12;}
         if(h>270){text(c,moduleOn(selectedModule)?"ACTIVE":"INACTIVE",x+10,ly+12,UiTheme.accent());
-            String info=selectedModule==0?SusChunkScanner.getFindingCount()+" findings":selectedModule==1?SpawnerEsp.getSpawnerCount()+" loaded spawners":"Speed "+String.format(Locale.ROOT,"%.1f",Freecam.getSpeed());
+            String info=selectedModule==0?SusChunkScanner.getFindingCount()+" findings":selectedModule==1?SpawnerEsp.getSpawnerCount()+" loaded spawners":selectedModule==2?"Speed "+String.format(Locale.ROOT,"%.1f",Freecam.getSpeed()):ChunkClues.findings().size()+" clue chunks";
             text(c,info,x+10,ly+28,MUTED);}
     }
     private class SweetButton extends ClickableWidget {
@@ -290,7 +307,7 @@ public final class DonutClientScreen extends Screen {
             if(selected||hot)UiTheme.glow(c,x,y,w,h,7);
             roundBox(c,x,y,w,h,7,selected?0xEE352319:0xE9221C18,selected||hot?UiTheme.accent():UiTheme.BORDER);
             if(on)roundFill(c,x+1,y+7,3,h-14,2,UiTheme.accent());
-            UiTheme.icon(c,index,x+12,y+(h-20)/2,20,on?UiTheme.accent():MUTED);
+            UiTheme.icon(c,index==3?0:index,x+12,y+(h-20)/2,20,on?UiTheme.accent():MUTED);
             text(c,textRenderer.trimToWidth(moduleNames[index],Math.max(20,w-124)),x+43,y+12,TEXT);
             if(h>48)text(c,textRenderer.trimToWidth(moduleDescriptions[index],Math.max(20,w-124)),x+43,y+31,MUTED);
             int sx=x+w-73,sy=y+(h-18)/2;roundBox(c,sx,sy,36,18,9,on?0xFFD78325:0xFF4A4038,on?UiTheme.accent():0xFF796B60);
@@ -308,3 +325,4 @@ public final class DonutClientScreen extends Screen {
     private static void roundFill(DrawContext c,int x,int y,int w,int h,int r,int color){UiTheme.round(c,x,y,w,h,r,color);}
     private static void roundBox(DrawContext c,int x,int y,int w,int h,int r,int fill,int border){UiTheme.box(c,x,y,w,h,r,fill,border);}
 }
+

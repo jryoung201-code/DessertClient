@@ -1,4 +1,4 @@
-# Dessert Client 0.7.2
+# Dessert Client 0.8.0
 
 Minecraft Java 1.21.11 / Fabric Loader 0.18.1+ / Fabric API / Java 21. Mod Menu is optional. Replace the old client JAR; press **Right Shift** to open the control center.
 
@@ -80,3 +80,14 @@ Verified in a real local Minecraft world: exposed and stone-covered spawners bot
 ## Consistent highlight colors (0.7.2)
 
 Spawner ESP, SUS chunk outlines and amethyst outlines use a dedicated fragment shader without fog blending. Both through-wall and depth-tested chunk highlights keep their selected colors at distance. Normal world fog is unchanged. Outlines still require loaded chunks and remain subject to configured distance limits.
+
+
+## Chunk Clues (0.8.0)
+
+Enable Chunk Clues in Modules, then open its configuration or sidebar page. Pink outlines mark strong block clues, amber marks multiple ordinary clue categories, and cyan marks unusually short client chunk-arrival gaps only. The details list explains every clue and distinguishes session re-receipts from unknown history. These are heuristic categories, not probability percentages or proof that another player visited.
+
+Rare crafted blocks include beacons, ender chests, respawn anchors and shulker boxes. Storage, redstone machinery, workstations and lighting must combine to count as ordinary evidence. Rails, cobwebs, bookshelves, hay and mossy stone bricks reduce ordinary evidence because generated structures can contain these blocks. Your own builds and custom world generation can still match.
+
+Arrival timing is event spacing measured on the client thread. After 20 usable baseline gaps, a gap under half the rolling median can receive the separate cyan label. It is not download latency, server generation time, or evidence of another player's visit. Chunky, batching and lag affect it. Timing never increases a block clue's tier.
+
+Scans use loaded chunks within at most 8 chunks, skip irrelevant section palettes, and process at most two chunks per five ticks. At most 24 outlines draw. History is bounded to 4096 observed chunks and clears on world/dimension/server changes or manual reset; it is not persisted. Turning the module on does not invent arrival timing for chunks already loaded.

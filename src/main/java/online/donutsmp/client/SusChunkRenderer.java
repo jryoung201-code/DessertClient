@@ -89,6 +89,8 @@ public final class SusChunkRenderer {
 
     private static final VertexConsumerProvider.Immediate OVERLAY = VertexConsumerProvider.immediate(new BufferAllocator(262144));
 
+    static RenderLayer clueLayer(){return THROUGH_WALLS_LINES;}
+
     private SusChunkRenderer() {}
 
     public static void setHighlightEnabled(boolean enabled) {
@@ -182,3 +184,4 @@ public final class SusChunkRenderer {
         }
     }
 }
+

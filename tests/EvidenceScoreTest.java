@@ -23,6 +23,20 @@ public class EvidenceScoreTest {
         double length=Math.sqrt(diagonal.x()*diagonal.x()+diagonal.y()*diagonal.y()+diagonal.z()*diagonal.z());
         check(Math.abs(length-.25)<1e-9,"Diagonal/vertical movement cannot boost camera speed");
         check(Math.abs(online.donutsmp.client.FreecamMotion.step(0,1,0,0,1,true).z()-.75)<1e-9,"Sprint boost triples movement");
-        System.out.println("14 scoring, notification and camera checks passed");
+        var none=new online.donutsmp.client.ChunkClueScore.Counts(0,0,0,0,0,0);
+        check(online.donutsmp.client.ChunkClueScore.tier(none)==0,"Arrival-only / empty chunks cannot gain block evidence");
+        check(online.donutsmp.client.ChunkClueScore.tier(new online.donutsmp.client.ChunkClueScore.Counts(0,1,0,0,8,0))==0,"One chest and structure-style lighting are not sufficient");
+        check(online.donutsmp.client.ChunkClueScore.tier(new online.donutsmp.client.ChunkClueScore.Counts(0,3,2,0,0,0))==2,"Storage and machinery combine into multiple clues");
+        check(online.donutsmp.client.ChunkClueScore.tier(new online.donutsmp.client.ChunkClueScore.Counts(0,3,2,0,0,8))==0,"Structure context discounts ambiguous ordinary clues");
+        check(online.donutsmp.client.ChunkClueScore.tier(new online.donutsmp.client.ChunkClueScore.Counts(1,0,0,0,0,100))==3,"Rare crafted blocks remain strong contextual clues");
+        check(online.donutsmp.client.ChunkClueScore.tier(new online.donutsmp.client.ChunkClueScore.Counts(0,10000,0,0,0,0))==0,"Repeated copies of one ordinary clue cannot manufacture independent evidence");
+        var cadence=new online.donutsmp.client.ArrivalCadence();long now=1_000_000_000L;
+        check(!cadence.observe(now).fast(),"First chunk cannot have a measured gap");
+        for(int i=0;i<20;i++){now+=2_000_000;check(!cadence.observe(now).fast(),"Stable arrival stream is not unusually fast");}
+        check(cadence.observe(now+500_000).fast(),"Shorter-than-baseline event spacing receives its own timing-only hint");
+        check(!cadence.observe(now+2_000_000_000L).fast(),"Idle gap must not count as fast");
+        cadence.clear();check(cadence.observe(now+3_000_000_000L).gap()<0,"Reset must not leak timing across worlds");
+        System.out.println("Scoring, notification, camera and chunk-clue regression checks passed");
     }
 }
+

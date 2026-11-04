@@ -36,6 +36,7 @@ public final class DonutSMPClient implements ClientModInitializer {
         ClientPreferences.load();
         SusChunkRenderer.register();
         SpawnerEsp.register();
+        ChunkClues.register();
         Freecam.register();
         ClientNotifications.register();
         HudOverlay.register();
@@ -55,7 +56,7 @@ public final class DonutSMPClient implements ClientModInitializer {
                 client.player.sendMessage(net.minecraft.text.Text.literal(saved?"Dessert: waypoint saved.":"Dessert: could not save waypoint."),true);
             }
             while(disableKey.wasPressed()){
-                SusChunkScanner.setEnabled(false);SpawnerEsp.setEnabled(false);Freecam.setEnabled(false,client);
+                SusChunkScanner.setEnabled(false);SpawnerEsp.setEnabled(false);ChunkClues.setEnabled(false);Freecam.setEnabled(false,client);
             }
             while (openClientKey.wasPressed()) {
                 if (client.currentScreen == null) {
@@ -65,3 +66,4 @@ public final class DonutSMPClient implements ClientModInitializer {
         });
     }
 }
+
