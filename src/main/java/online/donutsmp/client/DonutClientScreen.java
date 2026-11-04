@@ -102,7 +102,7 @@ public final class DonutClientScreen extends Screen {
         resetRows();int searchW=mainW<320?mainW-24:Math.min(190,mainW/2);
         search=new TextFieldWidget(textRenderer,mainW<320?mainX+12:mainX+mainW-searchW,bodyY-28,searchW,20,Text.literal("Search modules"));
         search.setDrawsBackground(false);search.setEditableColor(TEXT);search.setMaxLength(60);search.setText(query);search.setPlaceholder(Text.literal("Search modules..."));
-        search.setChangedListener(v->{query=v;offset=0;rebuildModuleSearch();});addDrawableChild(search);refreshModules();
+        search.setChangedListener(v->{if(v.equals(query))return;query=v;offset=0;rebuildModuleSearch();});addDrawableChild(search);refreshModules();
     }
     private void rebuildModuleSearch(){int cursor=search.getCursor();rebuild();search.setCursor(cursor,false);setFocused(search);}
     private final List<ClickableWidget> moduleButtons=new ArrayList<>();
