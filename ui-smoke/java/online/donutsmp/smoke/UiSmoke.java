@@ -48,7 +48,10 @@ public final class UiSmoke implements ClientModInitializer {
         }
         if(phase==5&&++ticks>20){phase=6;ScreenshotRecorder.saveScreenshot(mc.runDirectory,"chunk-clues-disabled.png",mc.getFramebuffer(),1,t->captured.set(true));}
         if(phase==6&&captured.get()){
-            captured.set(false);mc.setScreen(new DonutClientScreen());phase=7;ticks=0;
+            captured.set(false);mc.setScreen(new DonutClientScreen());
+            for(var child:java.util.List.copyOf(mc.currentScreen.children()))
+                if(child instanceof net.minecraft.client.gui.widget.TextFieldWidget field){field.setText("Chunk Clues");break;}
+            phase=7;ticks=0;
         }
         if(phase==7&&++ticks>30){phase=8;ScreenshotRecorder.saveScreenshot(mc.runDirectory,"chunk-clues-menu.png",mc.getFramebuffer(),1,t->captured.set(true));}
         if(phase==8&&captured.get()){System.out.println("DESSERT_CHUNK_CLUES_SMOKE_PASSED");phase=9;mc.scheduleStop();}

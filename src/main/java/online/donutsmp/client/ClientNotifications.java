@@ -54,7 +54,7 @@ public final class ClientNotifications {
             if(card.expires<=now)continue;
             var lines=mc.textRenderer.wrapLines(Text.literal(card.message),w-28);
             int count=Math.min(3,lines.size()),h=42+count*11;
-            int margin=UiTheme.hud?(left?90:UiTheme.modules?84:12):12;
+            int margin=UiTheme.hud?(left?90:UiTheme.modules?108:12):12;
             int y=bottom?height-48-used-h:margin+used;
             if(y<12||y+h>height-44)break;
             float entered=Math.min(1f,Math.max(0f,(now-card.created)/180f));
@@ -96,3 +96,4 @@ public final class ClientNotifications {
         testSound();
     }
 }
+
