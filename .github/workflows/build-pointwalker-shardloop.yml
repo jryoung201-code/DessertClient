@@ -1,18 +1,14 @@
-name: Build PointWalker ShardLoop
+name: Build PointWalker + ShardLoop v1.3.0
 on:
   push:
-    branches:
-      - feature/pointwalker-shardloop-build
-  pull_request:
-    branches:
-      - main
+    branches: [feature/pointwalker-shardloop-build]
+    paths: ['.pointwalker-build/**', '.github/workflows/build-pointwalker-shardloop.yml']
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
-  build-pointwalker:
+  build-mods:
+    name: Compile both Fabric 1.21.11 mods
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,27 +19,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
-      - name: Extract PointWalker sources
-        run: tar -xJf pointwalker-shardloop-build.tar.xz
-      - name: Apply source correction
+      - name: Unpack source project
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          source = Path('PointWalker-ShardLoop/src/main/java/dev/aven/pointwalker/ShardLoopController.java')
-          old = 'INSTANCE.setTrail(false))));'
-          new = 'INSTANCE.setTrail(false)))));'
-          contents = source.read_text()
-          if old not in contents: raise SystemExit('Source patch anchor not found')
-          contents = contents.replace(old, new)
-          contents = contents.replace('c.player.getPos()', 'new Vec3d(c.player.getX(), c.player.getY(), c.player.getZ())')
-          source.write_text(contents)
-          PY
-      - name: Build remapped Fabric mod
-        working-directory: PointWalker-ShardLoop
-        run: gradle --no-daemon build
-      - name: Upload compiled jar
-        uses: actions/upload-artifact@v4
+          mkdir -p "$RUNNER_TEMP/pointwalker"
+          base64 -d .pointwalker-build/pointwalker-v1.3.0.zip.b64 > "$RUNNER_TEMP/pointwalker/source.zip"
+          unzip -q "$RUNNER_TEMP/pointwalker/source.zip" -d "$RUNNER_TEMP/pointwalker"
+      - name: Build PointWalker and ShardLoop
+        working-directory: ${{ runner.temp }}/pointwalker/PointWalker-v1.3.0-Split
+        run: gradle --no-daemon --stacktrace clean build
+      - uses: actions/upload-artifact@v4
         with:
-          name: PointWalker-ShardLoop-1.1.0
-          path: PointWalker-ShardLoop/build/libs/PointWalker-ShardLoop-1.1.0.jar
+          name: PointWalker-and-ShardLoop-1.3.0
+          path: |
+            ${{ runner.temp }}/pointwalker/PointWalker-v1.3.0-Split/PointWalker/build/libs/PointWalker-1.3.0.jar
+            ${{ runner.temp }}/pointwalker/PointWalker-v1.3.0-Split/ShardLoop/build/libs/ShardLoop-1.3.0.jar
           if-no-files-found: error
+          retention-days: 14
