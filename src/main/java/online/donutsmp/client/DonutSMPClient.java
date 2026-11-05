@@ -38,6 +38,7 @@ public final class DonutSMPClient implements ClientModInitializer {
         SpawnerEsp.register();
         ChunkClues.register();
         GetPluginsCommand.register();
+        SeedTools.register();
         Freecam.register();
         ClientNotifications.register();
         HudOverlay.register();
