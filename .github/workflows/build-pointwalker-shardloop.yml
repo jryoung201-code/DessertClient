@@ -34,7 +34,9 @@ jobs:
           new = 'INSTANCE.setTrail(false)))));'
           contents = source.read_text()
           if old not in contents: raise SystemExit('Source patch anchor not found')
-          source.write_text(contents.replace(old, new))
+          contents = contents.replace(old, new)
+          contents = contents.replace('c.player.getPos()', 'new Vec3d(c.player.getX(), c.player.getY(), c.player.getZ())')
+          source.write_text(contents)
           PY
       - name: Build remapped Fabric mod
         working-directory: PointWalker-ShardLoop
