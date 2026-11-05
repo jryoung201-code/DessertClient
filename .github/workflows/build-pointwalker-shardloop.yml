@@ -1,0 +1,36 @@
+name: Build PointWalker ShardLoop
+on:
+  push:
+    branches:
+      - feature/pointwalker-shardloop-build
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-pointwalker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Extract PointWalker sources
+        run: tar -xJf pointwalker-shardloop-build.tar.xz
+      - name: Build remapped Fabric mod
+        working-directory: PointWalker-ShardLoop
+        run: gradle --no-daemon build
+      - name: Upload compiled jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: PointWalker-ShardLoop-1.1.0
+          path: PointWalker-ShardLoop/build/libs/PointWalker-ShardLoop-1.1.0.jar
+          if-no-files-found: error
