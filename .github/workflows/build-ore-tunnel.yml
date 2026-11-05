@@ -23,6 +23,9 @@ jobs:
         run: |
           base64 -d ore-tunnel-buildpayload.b64 > ore-tunnel.tar.xz
           tar -xJf ore-tunnel.tar.xz
+      - name: Apply Minecraft 1.21.11 API name corrections
+        run: |
+          sed -i 's/heading.getName()/heading.asString()/g; s/c.player.getPos()/c.player.getEntityPos()/g' ore-tunnel-miner/OreTunnelMiner/src/main/java/dev/aven/oretunnel/OreTunnelMiner.java
       - name: Build PointWalker library
         run: cd ore-tunnel-miner/PointWalker && gradle --no-daemon clean build
       - name: Build Ore Tunnel Miner
