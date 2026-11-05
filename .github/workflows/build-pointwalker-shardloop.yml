@@ -25,6 +25,17 @@ jobs:
           gradle-version: '9.2.1'
       - name: Extract PointWalker sources
         run: tar -xJf pointwalker-shardloop-build.tar.xz
+      - name: Apply source correction
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('PointWalker-ShardLoop/src/main/java/dev/aven/pointwalker/ShardLoopController.java')
+          old = 'INSTANCE.setTrail(false))));'
+          new = 'INSTANCE.setTrail(false)))));'
+          contents = source.read_text()
+          if old not in contents: raise SystemExit('Source patch anchor not found')
+          source.write_text(contents.replace(old, new))
+          PY
       - name: Build remapped Fabric mod
         working-directory: PointWalker-ShardLoop
         run: gradle --no-daemon build
