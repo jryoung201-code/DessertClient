@@ -24,19 +24,41 @@ jobs:
           mkdir -p "$RUNNER_TEMP/pointwalker"
           base64 -d .pointwalker-build/pointwalker-v1.3.0.zip.b64 > "$RUNNER_TEMP/pointwalker/source.zip"
           unzip -q "$RUNNER_TEMP/pointwalker/source.zip" -d "$RUNNER_TEMP/pointwalker"
-      - name: Configure Loom project dependency
+      - name: Configure separate PointWalker and ShardLoop Gradle projects
         run: |
           python3 - <<'PY'
-          from pathlib import Path
           import os
-          p = Path(os.environ["RUNNER_TEMP"]) / "pointwalker/PointWalker-v1.3.0-Split/build.gradle"
-          source = p.read_text()
-          old = "modImplementation project(':PointWalker')"
-          if old not in source: raise SystemExit('dependency rewrite anchor missing')
-          p.write_text(source.replace(old, "modImplementation project(path: ':PointWalker', configuration: 'namedElements')"))
+          from pathlib import Path
+          workspace = Path(os.environ['RUNNER_TEMP']) / 'pointwalker/PointWalker-v1.3.0-Split'
+          settings = """pluginManagement { repositories { maven { url = 'https://maven.fabricmc.net/' }; gradlePluginPortal(); mavenCentral() } }
+          rootProject.name = 'MinecraftMod'
+          """
+          dependencies = """  minecraft 'com.mojang:minecraft:1.21.11'
+            mappings 'net.fabricmc:yarn:1.21.11+build.4:v2'
+            modImplementation 'net.fabricmc:fabric-loader:0.18.1'
+            modImplementation 'net.fabricmc.fabric-api:fabric-api:0.141.1+1.21.11'
+          """
+          for name in ('PointWalker','ShardLoop'):
+              folder = workspace / name
+              (folder / 'settings.gradle').write_text(settings.replace('MinecraftMod',name))
+              dep = dependencies
+              if name == 'ShardLoop':
+                  dep += "    modImplementation files('../PointWalker/build/libs/PointWalker-1.3.0.jar')\n"
+              code = (
+                  "plugins { id 'fabric-loom' version '1.14.10'; id 'maven-publish' }\n"
+                  "group = 'dev.aven'\nversion = '1.3.0'\n"
+                  "base { archivesName = '" + name + "' }\n"
+                  "repositories { mavenCentral() }\n"
+                  "dependencies {\n" + dep + "}\n"
+                  "java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }\n"
+              )
+              (folder / 'build.gradle').write_text(code)
           PY
-      - name: Build PointWalker and ShardLoop
-        working-directory: ${{ runner.temp }}/pointwalker/PointWalker-v1.3.0-Split
+      - name: Build PointWalker API first
+        working-directory: ${{ runner.temp }}/pointwalker/PointWalker-v1.3.0-Split/PointWalker
+        run: gradle --no-daemon --stacktrace clean build
+      - name: Build ShardLoop against PointWalker API
+        working-directory: ${{ runner.temp }}/pointwalker/PointWalker-v1.3.0-Split/ShardLoop
         run: gradle --no-daemon --stacktrace clean build
       - uses: actions/upload-artifact@v4
         with:
