@@ -1,0 +1,37 @@
+name: Build Ore Tunnel Miner
+on:
+  push:
+    branches: [feature/ore-tunnel-miner-v1-0]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.0'
+      - name: Unpack source code
+        run: |
+          base64 -d ore-tunnel-buildpayload.b64 > ore-tunnel.tar.xz
+          tar -xJf ore-tunnel.tar.xz
+      - name: Build PointWalker library
+        run: cd ore-tunnel-miner/PointWalker && gradle --no-daemon clean build
+      - name: Build Ore Tunnel Miner
+        run: cd ore-tunnel-miner/OreTunnelMiner && gradle --no-daemon clean build
+      - name: Upload JAR files
+        uses: actions/upload-artifact@v4
+        with:
+          name: OreTunnelMiner-v1.0.0
+          path: |
+            ore-tunnel-miner/OreTunnelMiner/build/libs/OreTunnelMiner-1.0.0.jar
+          if-no-files-found: error
+          retention-days: 14
