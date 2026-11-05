@@ -24,6 +24,16 @@ jobs:
           mkdir -p "$RUNNER_TEMP/pointwalker"
           base64 -d .pointwalker-build/pointwalker-v1.3.0.zip.b64 > "$RUNNER_TEMP/pointwalker/source.zip"
           unzip -q "$RUNNER_TEMP/pointwalker/source.zip" -d "$RUNNER_TEMP/pointwalker"
+      - name: Configure Loom project dependency
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("$"+"RUNNER_TEMP/pointwalker/PointWalker-v1.3.0-Split/build.gradle")
+          source = p.read_text()
+          old = "modImplementation project(':PointWalker')"
+          if old not in source: raise SystemExit('dependency rewrite anchor missing')
+          p.write_text(source.replace(old, "modImplementation project(path: ':PointWalker', configuration: 'namedElements')"))
+          PY
       - name: Build PointWalker and ShardLoop
         working-directory: ${{ runner.temp }}/pointwalker/PointWalker-v1.3.0-Split
         run: gradle --no-daemon --stacktrace clean build
