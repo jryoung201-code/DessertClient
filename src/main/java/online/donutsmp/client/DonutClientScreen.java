@@ -88,7 +88,7 @@ public final class DonutClientScreen extends Screen {
     private int capacity(int rowHeight){return Math.max(1,(top+panelH-54-bodyY)/rowHeight);}
     private void overview(){
         resetRows();
-        line("YOUR WORKSPACE","Dessert Client 0.8.0",bodyY+12);
+        line("YOUR WORKSPACE","Dessert Client 0.9.0",bodyY+12);
         if(capacity(24)>3)line("Scanner",SusChunkScanner.isEnabled()?"Running":"Paused",bodyY+42);
         if(capacity(24)>3)line("Chunks analyzed",String.valueOf(SusChunkScanner.getScannedChunks()),bodyY+64);
         if(capacity(24)>4)line("Suspicious findings",String.valueOf(SusChunkScanner.getFindingCount()),bodyY+86);
@@ -206,7 +206,8 @@ public final class DonutClientScreen extends Screen {
             copy((int)Math.floor(client.player.getX()*scale)+" ~ "+(int)Math.floor(client.player.getZ()*scale));
         });
         button("Disable all modules",mainX+12,y+66,mainW-24,()->{SusChunkScanner.setEnabled(false);SpawnerEsp.setEnabled(false);ChunkClues.setEnabled(false);Freecam.setEnabled(false,client);notice="All modules disabled.";});
-        line("Portal conversion uses X/Z at an 8:1 ratio.","",y+94);
+        button("Seed Toolkit / Map / Ore ESP",mainX+12,y+92,mainW-24,()->client.setScreen(new SeedToolsScreen(this)));
+        line("Observed data only; unknown server seeds cannot be inferred.","",y+119);
     }
     private void settings(){
         resetRows();
@@ -247,7 +248,7 @@ public final class DonutClientScreen extends Screen {
         UiTheme.donut(c,left+27,top+headerH/2,headerH<60?13:18);
         if(panelW>600){c.getMatrices().pushMatrix();c.getMatrices().translate(left+55,top+headerH/2-15);c.getMatrices().scale(1.6f,1.6f);text(c,"Dessert Client",0,0,TEXT);c.getMatrices().popMatrix();}
         else text(c,"Dessert Client",left+52,top+headerH/2-9,TEXT);
-        text(c,"v0.8.0 | Fabric 1.21.11",left+52,top+headerH/2+6,MUTED);
+        text(c,"v0.9.0 | Fabric 1.21.11",left+52,top+headerH/2+6,MUTED);
         if(panelH>380)UiTheme.desert(c,left+5,top+panelH-78,navW-2,73);
         text(c,page,mainX+2,top+headerH+15,TEXT);
         if(!(page.equals("Modules")&&mainW<320))text(c,textRenderer.trimToWidth(subtitle(),page.equals("Modules")?Math.max(30,mainW/2-20):mainW-12),mainX+2,top+headerH+30,MUTED);
