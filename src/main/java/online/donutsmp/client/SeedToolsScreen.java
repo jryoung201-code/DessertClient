@@ -27,12 +27,19 @@ public final class SeedToolsScreen extends Screen {
                 feedback="Seed recorded; it does NOT reveal unseen terrain.";
             }catch(NumberFormatException ex){feedback="Enter a signed 64-bit numeric seed.";}
         }).dimensions(center+60,35,92,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Read local seed"),b->{
+            if(client!=null&&client.getServer()!=null){
+                SeedTools.setSeed(client.getServer().getOverworld().getSeed());
+                seedField.setText(Long.toString(SeedTools.seed()));
+                feedback="Read seed from local integrated server.";
+            }else feedback="Multiplayer servers do not expose their seed here.";
+        }).dimensions(center-145,62,100,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Clear seed"),b->{
             SeedTools.clearSeed();seedField.setText("");feedback="Stored seed cleared.";
-        }).dimensions(center-145,62,100,20).build());
+        }).dimensions(center-145,86,100,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal(SeedTools.xrayEnabled()?"Observed ore ESP: ON":"Observed ore ESP: OFF"),b->{
             SeedTools.toggleXray();init();
-        }).dimensions(center-40,62,192,20).build());
+        }).dimensions(center-40,86,192,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("-"),b->{zoom=Math.max(1,zoom-1);}).dimensions(center-55,height-44,30,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("+"),b->{zoom=Math.min(5,zoom+1);}).dimensions(center-18,height-44,30,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Back"),b->close()).dimensions(16,height-32,70,20).build());
