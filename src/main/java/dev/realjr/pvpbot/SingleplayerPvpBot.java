@@ -11,7 +11,7 @@ import net.minecraft.server.level.*;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.*;
-import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.entity.monster.zombie.Husk;
 import net.minecraft.world.item.*;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.BlockPos;
