@@ -115,7 +115,7 @@ public final class SingleplayerPvpBot implements ModInitializer {
      if(w.isEmptyBlock(feet)&&w.isEmptyBlock(feet.above())){pos=pos.add(0,y,0);found=true;break;}
    }
    if(!found){msg(p,"Try an open area.");return 0;}
-   b.moveTo(pos.x,pos.y,pos.z,p.getYRot()+180,0);
+   b.setPos(pos.x,pos.y,pos.z); b.setYRot(p.getYRot()+180);
    b.setCustomName(Component.literal(mode.name().replace('_',' ')+" Bot"));
    b.setCustomNameVisible(true);b.setPersistenceRequired();b.setSilent(true);
    b.setCanPickUpLoot(false);b.addTag("singleplayer_pvp_bot");
