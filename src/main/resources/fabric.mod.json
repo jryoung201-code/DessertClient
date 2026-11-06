@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "singleplayerpvpbot",
   "version": "${version}",
-  "name": "Singleplayer PvP Bot",
-  "description": "Singleplayer combat practice with five types of duels",
+  "name": "Singleplayer PvP Bot (Carpet)",
+  "description": "Singleplayer PvP training with real Carpet fake player API",
   "environment": "*",
   "entrypoints": {
     "main": [
@@ -11,8 +11,9 @@
     ]
   },
   "depends": {
-    "fabricloader": ">=0.18.0",
+    "fabricloader": ">=0.18.2",
     "fabric-api": "*",
+    "carpet": ">=1.4.194",
     "minecraft": "1.21.11",
     "java": ">=21"
   }

@@ -1,4 +1,4 @@
-name: Singleplayer PvP Bot JAR
+name: Singleplayer PvP Bot JAR (Carpet)
 on:
   push:
     branches: [singleplayer-pvp-bot-build]
@@ -18,6 +18,6 @@ jobs:
     - run: gradle --no-daemon build
     - uses: actions/upload-artifact@v4
       with:
-        name: SingleplayerPvPBot-1.21.11
-        path: build/libs/SingleplayerPvPBot-0.1.0.jar
+        name: SingleplayerPvPBot-Carpet-1.21.11
+        path: build/libs/SingleplayerPvPBot-0.2.0.jar
         if-no-files-found: error

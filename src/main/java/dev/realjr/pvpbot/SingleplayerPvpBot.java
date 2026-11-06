@@ -1,210 +1,436 @@
 package dev.realjr.pvpbot;
+
+import carpet.fakes.ServerPlayerInterface;
+import carpet.helpers.EntityPlayerActionPack;
+import carpet.helpers.EntityPlayerActionPack.Action;
+import carpet.helpers.EntityPlayerActionPack.ActionType;
+import carpet.patches.EntityPlayerMPFake;
 import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.minecraft.commands.*;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.*;
-import net.minecraft.world.Difficulty;
-import net.minecraft.world.entity.*;
-import net.minecraft.world.entity.ai.attributes.*;
-import net.minecraft.world.entity.monster.zombie.Husk;
-import net.minecraft.world.item.*;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import java.util.UUID;
 
+/**
+ * A singleplayer training opponent built on Carpet's real fake-player API.
+ *
+ * Carpet creates and owns the ServerPlayer entity; this mod controls its
+ * EntityPlayerActionPack instead of using a mob AI or fake player packets.
+ */
 public final class SingleplayerPvpBot implements ModInitializer {
- enum Mode {SWORD,MACE,SMP,ELYTRA_MACE,SPEAR_MACE}
- static class Fight {
-   MinecraftServer server; ServerLevel world; UUID owner; Husk bot; Mode mode;
-   int time, lastAbility=-300, launch; boolean diving, spear;
-   Fight(MinecraftServer s,ServerLevel w,ServerPlayer p,Husk b,Mode m){
-     server=s; world=w; owner=p.getUUID(); bot=b; mode=m; spear=m==Mode.SPEAR_MACE;
-   }
- }
- static Fight active;
- static Mode lastMode;
- static int wins, losses, difficulty=1;
- static final double[] HP={20,30,44}, DAMAGE={2.5,4.5,6.5}, SPEED={0.24,0.31,0.37};
- static final int[] COOLDOWN={140,100,72};
- @Override public void onInitialize(){
-   CommandRegistrationCallback.EVENT.register((d,access,env)->register(d));
-   ServerTickEvents.END_SERVER_TICK.register(SingleplayerPvpBot::tick);
-   ServerLifecycleEvents.SERVER_STOPPED.register(s->{active=null;lastMode=null;wins=losses=0;});
- }
- static void register(CommandDispatcher<CommandSourceStack> d){
-   var root=Commands.literal("pvpbot").executes(c->help(c.getSource()));
-   root.then(Commands.literal("help").executes(c->help(c.getSource())));
-   root.then(Commands.literal("stop").executes(c->stop(c.getSource())));
-   root.then(Commands.literal("reset").executes(c->reset(c.getSource())));
-   root.then(Commands.literal("kit").executes(c->kit(c.getSource())));
-   root.then(Commands.literal("status").executes(c->status(c.getSource())));
-   var dif=Commands.literal("difficulty");
-   dif.then(Commands.literal("easy").executes(c->setDifficulty(c.getSource(),0)));
-   dif.then(Commands.literal("normal").executes(c->setDifficulty(c.getSource(),1)));
-   dif.then(Commands.literal("hard").executes(c->setDifficulty(c.getSource(),2)));
-   root.then(dif);
-   for(Mode m:Mode.values()) root.then(Commands.literal(m.name().toLowerCase()).executes(c->start(c.getSource(),m)));
-   root.then(Commands.literal("elytramace").executes(c->start(c.getSource(),Mode.ELYTRA_MACE)));
-   root.then(Commands.literal("spearmace").executes(c->start(c.getSource(),Mode.SPEAR_MACE)));
-   d.register(root);
- }
- static ServerPlayer player(CommandSourceStack src){
-   if(!src.getServer().isSingleplayer()){src.sendFailure(Component.literal("Only singleplayer supported."));return null;}
-   if(src.getEntity() instanceof ServerPlayer p) return p;
-   src.sendFailure(Component.literal("Use this command in-game."));return null;
- }
- static void msg(ServerPlayer p,String x){p.sendSystemMessage(Component.literal("[PvP Bot] "+x));}
- static int help(CommandSourceStack s){
-   ServerPlayer p=player(s); if(p==null)return 0;
-   msg(p,"Modes: /pvpbot sword | mace | smp | elytra_mace | spear_mace");
-   msg(p,"Commands: kit | reset | stop | status | difficulty easy/normal/hard");return 1;
- }
- static int status(CommandSourceStack s){
-   ServerPlayer p=player(s);if(p==null)return 0;
-   msg(p,"Difficulty: "+new String[]{"Easy","Normal","Hard"}[difficulty]+", duel: "+(active==null?"none":active.mode)+", record: "+wins+" wins / "+losses+" losses");return 1;
- }
- static int setDifficulty(CommandSourceStack s,int i){
-   ServerPlayer p=player(s); if(p==null)return 0;
-   difficulty=i;if(active!=null)attributes(active.bot);
-   msg(p,"Difficulty changed to "+new String[]{"Easy","Normal","Hard"}[i]);return 1;
- }
- static void equip(Husk b,EquipmentSlot slot,Item i){b.setItemSlot(slot,new ItemStack(i));}
- static void gear(Husk b,Mode m){
-   Item helm=Items.NETHERITE_HELMET, chest=Items.NETHERITE_CHESTPLATE;
-   Item legs=Items.NETHERITE_LEGGINGS,boots=Items.NETHERITE_BOOTS;
-   Item main=Items.NETHERITE_SWORD,off=Items.AIR;
-   switch(m){
-     case SWORD -> {helm=Items.DIAMOND_HELMET;chest=Items.DIAMOND_CHESTPLATE;legs=Items.DIAMOND_LEGGINGS;boots=Items.DIAMOND_BOOTS;main=Items.DIAMOND_SWORD;}
-     case MACE -> main=Items.MACE;
-     case SMP -> off=Items.TOTEM_OF_UNDYING;
-     case ELYTRA_MACE -> {chest=Items.ELYTRA;main=Items.MACE;}
-     case SPEAR_MACE -> main=Items.NETHERITE_SPEAR;
-   }
-   equip(b,EquipmentSlot.HEAD,helm);equip(b,EquipmentSlot.CHEST,chest);
-   equip(b,EquipmentSlot.LEGS,legs);equip(b,EquipmentSlot.FEET,boots);
-   equip(b,EquipmentSlot.MAINHAND,main);equip(b,EquipmentSlot.OFFHAND,off);
- }
- static void attr(Husk b,net.minecraft.core.Holder<Attribute> a,double val){
-   AttributeInstance x=b.getAttribute(a);if(x!=null)x.setBaseValue(val);
- }
- static void attributes(Husk b){
-   attr(b,Attributes.MAX_HEALTH,HP[difficulty]);attr(b,Attributes.ATTACK_DAMAGE,DAMAGE[difficulty]);
-   attr(b,Attributes.MOVEMENT_SPEED,SPEED[difficulty]);
-   attr(b,Attributes.FOLLOW_RANGE,32);
-   b.setHealth((float)HP[difficulty]);
-   for(EquipmentSlot e:EquipmentSlot.values())b.setDropChance(e,0);
- }
- static int start(CommandSourceStack src,Mode mode){
-   ServerPlayer p=player(src);if(p==null)return 0;
-   ServerLevel w=src.getLevel();
-   if(w.getDifficulty()==Difficulty.PEACEFUL){msg(p,"Change world difficulty from Peaceful.");return 0;}
-   stopInternal();
-   Husk b=EntityType.HUSK.create(w,EntitySpawnReason.COMMAND);
-   if(b==null){msg(p,"Could not spawn bot.");return 0;}
-   Vec3 dir=p.getLookAngle();dir=new Vec3(dir.x,0,dir.z);
-   if(dir.lengthSqr()<0.01)dir=new Vec3(0,0,1);
-   Vec3 pos=p.position().add(dir.normalize().scale(5));
-   boolean found=false;
-   for(int y=0;y<3;y++){
-     BlockPos feet=BlockPos.containing(pos.x,pos.y+y,pos.z);
-     if(w.isEmptyBlock(feet)&&w.isEmptyBlock(feet.above())){pos=pos.add(0,y,0);found=true;break;}
-   }
-   if(!found){msg(p,"Try an open area.");return 0;}
-   b.setPos(pos.x,pos.y,pos.z); b.setYRot(p.getYRot()+180);
-   b.setCustomName(Component.literal(mode.name().replace('_',' ')+" Bot"));
-   b.setCustomNameVisible(true);b.setPersistenceRequired();b.setSilent(true);
-   b.setCanPickUpLoot(false);b.addTag("singleplayer_pvp_bot");
-   gear(b,mode);attributes(b);
-   if(!w.addFreshEntity(b)){msg(p,"Could not place bot.");return 0;}
-   b.setTarget(p);active=new Fight(src.getServer(),w,p,b,mode);
-   lastMode=mode;msg(p,mode+" started! Use /pvpbot kit to get gear.");return 1;
- }
- static void stopInternal(){
-   if(active!=null){if(!active.bot.isRemoved())active.bot.discard();active=null;}
- }
- static int stop(CommandSourceStack s){ServerPlayer p=player(s);if(p==null)return 0;stopInternal();msg(p,"Bot removed.");return 1;}
- static int reset(CommandSourceStack s){ServerPlayer p=player(s);if(p==null)return 0;if(lastMode==null){msg(p,"Start a duel first.");return 0;}return start(s,lastMode);}
- static int kit(CommandSourceStack s){
-   ServerPlayer p=player(s);if(p==null)return 0;
-   Mode m=active==null?lastMode:active.mode;
-   if(m==null){msg(p,"Start a duel first.");return 0;}
-   String items=switch(m){
-     case SWORD -> "diamond_sword diamond_helmet diamond_chestplate diamond_leggings diamond_boots golden_apple:8";
-     case MACE -> "mace netherite_helmet netherite_chestplate netherite_leggings netherite_boots wind_charge:32 golden_apple:16";
-     case SMP -> "netherite_sword netherite_helmet netherite_chestplate netherite_leggings netherite_boots totem_of_undying:2 shield golden_apple:16 ender_pearl:8";
-     case ELYTRA_MACE -> "mace elytra netherite_helmet netherite_leggings netherite_boots firework_rocket:32 wind_charge:32 totem_of_undying";
-     case SPEAR_MACE -> "netherite_spear mace netherite_helmet netherite_chestplate netherite_leggings netherite_boots wind_charge:16 golden_apple:16";
-   };
-   CommandSourceStack console=s.getServer().createCommandSourceStack().withLevel(s.getLevel()).withSuppressedOutput();
-   for(String x:items.split(" ")){
-      String[] parts=x.split(":");
-      s.getServer().getCommands().performPrefixedCommand(console,"give "+p.getScoreboardName()+" minecraft:"+parts[0]+(parts.length==2?" "+parts[1]:""));
-   }
-   msg(p,"Kit added to inventory.");return 1;
- }
- static boolean ability(Fight f){return f.time-f.lastAbility>COOLDOWN[difficulty];}
- static void tick(MinecraftServer s){
-   Fight f=active;if(f==null||f.server!=s)return;
-   ServerPlayer p=s.getPlayerList().getPlayer(f.owner);
-   if(p==null||p.level()!=f.world){stopInternal();return;}
-   Husk b=f.bot;
-   if(!b.isAlive()){wins++;msg(p,"Victory! Score "+wins+"-"+losses);active=null;return;}
-   if(!p.isAlive()){losses++;msg(p,"Bot won! Score "+wins+"-"+losses);stopInternal();return;}
-   f.time++;
-   if(f.time%30==0&&b.getTarget()!=p)b.setTarget(p);
-   double distance=b.distanceTo(p);
-   if(f.mode==Mode.SWORD&&f.time%34==0&&distance<6&&distance>1.5){
-      Vec3 delta=p.position().subtract(b.position());
-      Vec3 strafe=new Vec3(-delta.z,0,delta.x).normalize().scale(f.time%68==0?0.22:-0.22);
-      b.setDeltaMovement(b.getDeltaMovement().add(strafe));
-   }
-   if(f.mode==Mode.SMP){
-      if(f.time%Math.max(85,COOLDOWN[difficulty]*2)==0&&b.getHealth()<HP[difficulty]*0.65){
-        b.heal(5.0f);b.swing(net.minecraft.world.InteractionHand.OFF_HAND);
-      }
-      if(f.time%70==0&&distance>5&&distance<14){
-        Vec3 delta=p.position().subtract(b.position()).normalize();
-        b.setDeltaMovement(new Vec3(delta.x*0.36,0.24,delta.z*0.36));
-      }
-   }
-   if(f.mode==Mode.SPEAR_MACE){
-     boolean wantSpear=distance>=3.1;
-     if(wantSpear!=f.spear&&f.time%12==0){
-       equip(b,EquipmentSlot.MAINHAND,wantSpear?Items.NETHERITE_SPEAR:Items.MACE);f.spear=wantSpear;
-     }
-     if(f.spear&&distance>4.2&&distance<9&&ability(f)){
-       Vec3 delta=p.position().subtract(b.position()).normalize();
-       b.setDeltaMovement(new Vec3(delta.x*0.67,0.16,delta.z*0.67));f.lastAbility=f.time;
-     }
-   }
-   if(f.mode==Mode.MACE||f.mode==Mode.ELYTRA_MACE||(f.mode==Mode.SPEAR_MACE&&!f.spear)){
-     if(!f.diving&&ability(f)&&distance>1.7&&distance<7&&b.onGround()){
-       Vec3 delta=p.position().subtract(b.position());
-       Vec3 dir=new Vec3(delta.x,0,delta.z).normalize();
-       if(f.mode==Mode.ELYTRA_MACE&&headroom(f.world,b,8)){
-         b.teleportTo(b.getX(),b.getY()+7,b.getZ());
-         b.setDeltaMovement(new Vec3(dir.x*0.55,-0.12,dir.z*0.55));
-       }else b.setDeltaMovement(new Vec3(dir.x*0.26,1.0,dir.z*0.26));
-       f.diving=true;f.launch=f.time;f.lastAbility=f.time;
-     }
-     if(f.diving&&b.onGround()&&f.time-f.launch>6){
-       f.diving=false;
-       if(b.distanceTo(p)<3.2){
-         float damage=(float)new double[]{2,4,6}[difficulty];
-         p.hurtServer(f.world,f.world.damageSources().mobAttack(b),damage);
-       }
-     }
-     if(f.diving&&f.time-f.launch>70)f.diving=false;
-   }
- }
- static boolean headroom(ServerLevel w,Husk b,int h){
-   BlockPos pos=b.blockPosition();
-   for(int i=1;i<=h;i++)if(!w.isEmptyBlock(pos.above(i)))return false;
-   return true;
- }
+    private static final String BOT_NAME = "ArenaPvPBot";
+    private static final double[] HP = {20, 24, 30};
+    private static final double[] MOVE_SPEED = {0.085, 0.102, 0.117};
+    private static final int[] ATTACK_TICKS = {23, 14, 10};
+    private static final int[] JUMP_TICKS = {125, 88, 68};
+
+    private enum Mode {
+        SWORD, MACE, SMP, ELYTRA_MACE, SPEAR_MACE
+    }
+
+    private static final class Fight {
+        final MinecraftServer server;
+        final ServerLevel world;
+        final UUID owner;
+        final Mode mode;
+        EntityPlayerMPFake bot;
+        int age;
+        int lastAttack = -100;
+        int lastJump = -200;
+        int lastSpearUse = -100;
+        int eatStarted = -100;
+        boolean eating = false;
+        boolean spear = false;
+
+        Fight(MinecraftServer server, ServerLevel world, UUID owner, Mode mode) {
+            this.server = server;
+            this.world = world;
+            this.owner = owner;
+            this.mode = mode;
+        }
+    }
+
+    private static Fight fight;
+    // Cancelling a Carpet spawn can happen before its async profile lookup finishes.
+    private static boolean cleanupWhenSpawned;
+    private static Mode lastMode;
+    private static int wins, losses, difficulty = 1;
+
+    @Override
+    public void onInitialize() {
+        CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> commands(dispatcher));
+        ServerTickEvents.END_SERVER_TICK.register(SingleplayerPvpBot::tick);
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+            fight = null;
+            cleanupWhenSpawned = false;
+            lastMode = null;
+            wins = losses = 0;
+        });
+    }
+
+    private static void commands(CommandDispatcher<CommandSourceStack> dispatcher) {
+        var root = Commands.literal("pvpbot").executes(c -> help(c.getSource()));
+        root.then(Commands.literal("help").executes(c -> help(c.getSource())));
+        root.then(Commands.literal("stop").executes(c -> stop(c.getSource())));
+        root.then(Commands.literal("reset").executes(c -> reset(c.getSource())));
+        root.then(Commands.literal("kit").executes(c -> kit(c.getSource())));
+        root.then(Commands.literal("status").executes(c -> status(c.getSource())));
+        var dif = Commands.literal("difficulty");
+        dif.then(Commands.literal("easy").executes(c -> difficulty(c.getSource(), 0)));
+        dif.then(Commands.literal("normal").executes(c -> difficulty(c.getSource(), 1)));
+        dif.then(Commands.literal("hard").executes(c -> difficulty(c.getSource(), 2)));
+        root.then(dif);
+        for (Mode mode : Mode.values()) {
+            root.then(Commands.literal(mode.name().toLowerCase()).executes(c -> start(c.getSource(), mode)));
+        }
+        root.then(Commands.literal("elytramace").executes(c -> start(c.getSource(), Mode.ELYTRA_MACE)));
+        root.then(Commands.literal("spearmace").executes(c -> start(c.getSource(), Mode.SPEAR_MACE)));
+        dispatcher.register(root);
+    }
+
+    private static ServerPlayer owner(CommandSourceStack source) {
+        if (!source.getServer().isSingleplayer()) {
+            source.sendFailure(Component.literal("This PvP bot only works in singleplayer worlds."));
+            return null;
+        }
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.literal("Use this command in your world."));
+            return null;
+        }
+        return player;
+    }
+
+    private static void message(ServerPlayer player, String text) {
+        player.sendSystemMessage(Component.literal("[Carpet PvP Bot] " + text));
+    }
+
+    private static int help(CommandSourceStack source) {
+        ServerPlayer player = owner(source);
+        if (player == null) return 0;
+        message(player, "Duels: /pvpbot sword | mace | smp | elytra_mace | spear_mace");
+        message(player, "Other: kit | reset | stop | status | difficulty easy/normal/hard");
+        return 1;
+    }
+
+    private static int status(CommandSourceStack source) {
+        ServerPlayer player = owner(source);
+        if (player == null) return 0;
+        message(player, "Difficulty " + new String[]{"Easy", "Normal", "Hard"}[difficulty]
+            + "; mode " + (fight == null ? "none" : fight.mode)
+            + "; record " + wins + " wins, " + losses + " losses");
+        return 1;
+    }
+
+    private static int difficulty(CommandSourceStack source, int level) {
+        ServerPlayer player = owner(source);
+        if (player == null) return 0;
+        difficulty = level;
+        if (fight != null && fight.bot != null && fight.bot.isAlive()) configureAttributes(fight.bot);
+        message(player, "Difficulty: " + new String[]{"Easy", "Normal", "Hard"}[difficulty]);
+        return 1;
+    }
+
+    private static int start(CommandSourceStack source, Mode mode) {
+        ServerPlayer player = owner(source);
+        if (player == null) return 0;
+        if (fight != null && fight.bot == null) {
+            message(player, "A fake player is still spawning. Use /pvpbot stop to cancel.");
+            return 0;
+        }
+        if (cleanupWhenSpawned || EntityPlayerMPFake.isSpawningPlayer(BOT_NAME)) {
+            message(player, "Carpet is completing the previous fake-player spawn. Try again.");
+            return 0;
+        }
+        stopInternal();
+        if (source.getServer().getPlayerList().getPlayerByName(BOT_NAME) != null) {
+            message(player, "The name " + BOT_NAME + " is already in use. Remove that fake player first.");
+            return 0;
+        }
+
+        Vec3 horizontal = player.getLookAngle().multiply(1, 0, 1);
+        if (horizontal.lengthSqr() < 0.0001) horizontal = new Vec3(0, 0, 1);
+        Vec3 location = player.position().add(horizontal.normalize().scale(5));
+        boolean valid = false;
+        for (int rise = 0; rise <= 4; rise++) {
+            BlockPos feet = BlockPos.containing(location.x, location.y + rise, location.z);
+            if (source.getLevel().isEmptyBlock(feet) && source.getLevel().isEmptyBlock(feet.above())) {
+                location = location.add(0, rise, 0);
+                valid = true;
+                break;
+            }
+        }
+        if (!valid) {
+            message(player, "Find an open area with two empty blocks of headroom.");
+            return 0;
+        }
+
+        Fight next = new Fight(source.getServer(), source.getLevel(), player.getUUID(), mode);
+        fight = next;
+        lastMode = mode;
+        boolean accepted;
+        try {
+            accepted = EntityPlayerMPFake.createFake(
+                BOT_NAME, source.getServer(), location,
+                player.getYRot() + 180.0, 0, source.getLevel().dimension(),
+                GameType.SURVIVAL, false
+            );
+        } catch (RuntimeException e) {
+            fight = null;
+            message(player, "Carpet could not start a fake player: " + e.getClass().getSimpleName());
+            return 0;
+        }
+        if (!accepted) {
+            fight = null;
+            message(player, "Carpet refused the fake player. Check /carpet allowSpawningOfflinePlayers.");
+            return 0;
+        }
+        message(player, "Summoning real Carpet fake player for " + mode + ". Use /pvpbot kit for gear.");
+        return 1;
+    }
+
+    private static int stop(CommandSourceStack source) {
+        ServerPlayer player = owner(source);
+        if (player == null) return 0;
+        stopInternal();
+        message(player, "Practice duel stopped.");
+        return 1;
+    }
+
+    private static int reset(CommandSourceStack source) {
+        ServerPlayer player = owner(source);
+        if (player == null) return 0;
+        if (lastMode == null) {
+            message(player, "Start a duel first.");
+            return 0;
+        }
+        return start(source, lastMode);
+    }
+
+    private static void stopInternal() {
+        if (fight == null) return;
+        Fight previous = fight;
+        fight = null;
+        if (previous.bot != null) retire(previous.bot);
+        else cleanupWhenSpawned = true;
+    }
+
+    private static void retire(EntityPlayerMPFake bot) {
+        if (bot.isRemoved()) return;
+        ((ServerPlayerInterface) bot).getActionPack().stopAll();
+        // Avoid leaving kit items in the world when a practice session is cancelled.
+        bot.getInventory().clearContent();
+        bot.kill(Component.literal("PvP practice session ended"));
+    }
+
+    private static void equip(EntityPlayerMPFake bot, EquipmentSlot slot, Item item) {
+        bot.setItemSlot(slot, new ItemStack(item));
+    }
+
+    private static void configureAttributes(EntityPlayerMPFake bot) {
+        setAttribute(bot, Attributes.MAX_HEALTH, HP[difficulty]);
+        setAttribute(bot, Attributes.MOVEMENT_SPEED, MOVE_SPEED[difficulty]);
+        bot.setHealth((float) HP[difficulty]);
+    }
+
+    private static void setAttribute(EntityPlayerMPFake bot, Holder<Attribute> attribute, double value) {
+        AttributeInstance instance = bot.getAttribute(attribute);
+        if (instance != null) instance.setBaseValue(value);
+    }
+
+    private static void equipBot(Fight f) {
+        EntityPlayerMPFake bot = f.bot;
+        bot.getInventory().clearContent();
+        Item helmet = Items.NETHERITE_HELMET;
+        Item chest = Items.NETHERITE_CHESTPLATE;
+        Item legs = Items.NETHERITE_LEGGINGS;
+        Item boots = Items.NETHERITE_BOOTS;
+        Item weapon = Items.NETHERITE_SWORD;
+        Item offhand = Items.AIR;
+        switch (f.mode) {
+            case SWORD -> {
+                helmet = Items.DIAMOND_HELMET;
+                chest = Items.DIAMOND_CHESTPLATE;
+                legs = Items.DIAMOND_LEGGINGS;
+                boots = Items.DIAMOND_BOOTS;
+                weapon = Items.DIAMOND_SWORD;
+            }
+            case MACE -> weapon = Items.MACE;
+            case SMP -> offhand = Items.TOTEM_OF_UNDYING;
+            case ELYTRA_MACE -> {
+                chest = Items.ELYTRA;
+                weapon = Items.MACE;
+            }
+            case SPEAR_MACE -> {
+                weapon = Items.NETHERITE_SPEAR;
+                f.spear = true;
+            }
+        }
+        equip(bot, EquipmentSlot.HEAD, helmet);
+        equip(bot, EquipmentSlot.CHEST, chest);
+        equip(bot, EquipmentSlot.LEGS, legs);
+        equip(bot, EquipmentSlot.FEET, boots);
+        equip(bot, EquipmentSlot.MAINHAND, weapon);
+        equip(bot, EquipmentSlot.OFFHAND, offhand);
+        configureAttributes(bot);
+    }
+
+    private static int kit(CommandSourceStack source) {
+        ServerPlayer player = owner(source);
+        if (player == null) return 0;
+        Mode mode = fight == null ? lastMode : fight.mode;
+        if (mode == null) {
+            message(player, "Start a duel first.");
+            return 0;
+        }
+        String items = switch (mode) {
+            case SWORD -> "diamond_sword diamond_helmet diamond_chestplate diamond_leggings diamond_boots golden_apple:8";
+            case MACE -> "mace netherite_helmet netherite_chestplate netherite_leggings netherite_boots wind_charge:32 golden_apple:16";
+            case SMP -> "netherite_sword netherite_helmet netherite_chestplate netherite_leggings netherite_boots totem_of_undying:2 shield golden_apple:16 ender_pearl:8";
+            case ELYTRA_MACE -> "mace elytra netherite_helmet netherite_leggings netherite_boots firework_rocket:32 wind_charge:32";
+            case SPEAR_MACE -> "netherite_spear mace netherite_helmet netherite_chestplate netherite_leggings netherite_boots wind_charge:16 golden_apple:16";
+        };
+        CommandSourceStack console = source.getServer().createCommandSourceStack()
+            .withLevel(source.getLevel()).withSuppressedOutput();
+        for (String token : items.split(" ")) {
+            String[] pair = token.split(":");
+            String command = "give " + player.getScoreboardName() + " minecraft:" + pair[0]
+                + (pair.length == 2 ? " " + pair[1] : "");
+            source.getServer().getCommands().performPrefixedCommand(console, command);
+        }
+        message(player, "Duel kit given.");
+        return 1;
+    }
+
+    private static void tick(MinecraftServer server) {
+        if (cleanupWhenSpawned) {
+            ServerPlayer former = server.getPlayerList().getPlayerByName(BOT_NAME);
+            if (former instanceof EntityPlayerMPFake fake) {
+                retire(fake);
+                cleanupWhenSpawned = false;
+            } else if (!EntityPlayerMPFake.isSpawningPlayer(BOT_NAME)) {
+                cleanupWhenSpawned = false;
+            }
+        }
+        Fight f = fight;
+        if (f == null || f.server != server) return;
+        ServerPlayer player = server.getPlayerList().getPlayer(f.owner);
+        if (player == null || player.level() != f.world) {
+            stopInternal();
+            return;
+        }
+        f.age++;
+
+        if (f.bot == null) {
+            ServerPlayer candidate = server.getPlayerList().getPlayerByName(BOT_NAME);
+            if (candidate instanceof EntityPlayerMPFake fake) {
+                f.bot = fake;
+                equipBot(f);
+                message(player, "Carpet PvP Bot spawned. Fight!");
+            } else if (f.age >= 240) {
+                fight = null;
+                cleanupWhenSpawned = true;
+                message(player, "Bot spawn timed out. Check that Carpet 1.4.194 is installed.");
+            }
+            return;
+        }
+
+        if (!f.bot.isAlive() || f.bot.isRemoved()) {
+            wins++;
+            message(player, "Victory! Score: " + wins + "-" + losses);
+            fight = null;
+            return;
+        }
+        if (!player.isAlive()) {
+            losses++;
+            message(player, "Bot victory. Score: " + wins + "-" + losses);
+            stopInternal();
+            return;
+        }
+        combatTick(f, player);
+    }
+
+    private static void combatTick(Fight f, ServerPlayer target) {
+        EntityPlayerMPFake bot = f.bot;
+        EntityPlayerActionPack actions = ((ServerPlayerInterface) bot).getActionPack();
+        Vec3 toTarget = target.position().subtract(bot.position());
+        double distance = toTarget.length();
+        if (distance > 30) {
+            actions.stopMovement();
+            if (f.age % 80 == 0) message(target, "Return within 30 blocks to resume.");
+            return;
+        }
+
+        actions.lookAt(target.getEyePosition().add(0, -0.27, 0));
+        if (f.mode == Mode.SMP && (f.eating || (bot.getHealth() <= 9 && f.age > 100 && f.age - f.eatStarted > 130))) {
+            if (!f.eating) {
+                f.eating = true;
+                f.eatStarted = f.age;
+                equip(bot, EquipmentSlot.MAINHAND, Items.GOLDEN_APPLE);
+                actions.start(ActionType.USE, Action.continuous());
+            }
+            actions.setForward(-0.30f).setStrafing(0.35f).setSprinting(false);
+            if (f.age - f.eatStarted >= 39) {
+                actions.start(ActionType.USE, null);
+                equip(bot, EquipmentSlot.MAINHAND, Items.NETHERITE_SWORD);
+                f.eating = false;
+            }
+            return;
+        }
+
+        // Carpet ActionPack supplies actual player inputs and client-like targeting.
+        float forward = distance > 2.50 ? 1.0f : distance < 1.8 ? -0.32f : 0.10f;
+        float strafe = (f.age / 30) % 2 == 0 ? 0.45f : -0.45f;
+        actions.setForward(forward).setStrafing(strafe)
+            .setSprinting(difficulty > 0 && distance > 3.0);
+
+        if (f.mode == Mode.SPEAR_MACE) {
+            boolean useSpear = distance >= 3.0;
+            if (useSpear != f.spear) {
+                equip(bot, EquipmentSlot.MAINHAND, useSpear ? Items.NETHERITE_SPEAR : Items.MACE);
+                f.spear = useSpear;
+            }
+            if (useSpear && distance > 3.5 && distance <= 5.8 && f.age - f.lastSpearUse > 65) {
+                actions.start(ActionType.USE, Action.once());
+                f.lastSpearUse = f.age;
+            }
+        }
+
+        boolean maceMode = f.mode == Mode.MACE || f.mode == Mode.ELYTRA_MACE
+            || (f.mode == Mode.SPEAR_MACE && !f.spear);
+        if (maceMode && bot.onGround() && distance > 2.0 && distance < 7
+            && f.age - f.lastJump > JUMP_TICKS[difficulty]) {
+            actions.start(ActionType.JUMP, Action.once());
+            Vec3 travel = new Vec3(toTarget.x, 0, toTarget.z).normalize();
+            double yBoost = f.mode == Mode.ELYTRA_MACE ? 0.94 : 0.66;
+            bot.setDeltaMovement(bot.getDeltaMovement().add(travel.x * 0.16, yBoost, travel.z * 0.16));
+            f.lastJump = f.age;
+        }
+        // Elytra-equipped Carpet players retain vanilla collision and damage;
+        // the high-jump approach is a limited elytra-mace practice approximation.
+        int attackInterval = ATTACK_TICKS[difficulty] + (maceMode ? 2 : 0);
+        boolean fallingMace = !maceMode || !bot.onGround() || f.age - f.lastJump > 27;
+        double reach = f.spear ? 4.0 : 2.90;
+        if (distance < reach && fallingMace && f.age - f.lastAttack >= attackInterval) {
+            actions.start(ActionType.ATTACK, Action.once());
+            f.lastAttack = f.age;
+        }
+    }
 }
