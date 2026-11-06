@@ -1,56 +1,23 @@
-name: Build DonutSMP Client
-
+name: Singleplayer PvP Bot JAR
 on:
   push:
-    branches: [main, master]
+    branches: [singleplayer-pvp-bot-build]
   workflow_dispatch:
-
-permissions:
-  contents: write
-
 jobs:
   build:
-    name: Compile Minecraft 1.21.11 mod
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: gradle
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.2.0'
-
-      - name: Read mod version
-        id: mod_version
-        run: echo "version=$(grep '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
-
-      - name: Build mod
-        run: gradle --no-daemon clean build
-
-      - name: Upload mod JAR
-        uses: actions/upload-artifact@v4
-        with:
-          name: DonutSMP-Client-${{ steps.mod_version.outputs.version }}-MC1.21.11
-          path: build/libs/*.jar
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Publish JAR to GitHub Releases
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.mod_version.outputs.version }}
-          name: DonutSMP Client v${{ steps.mod_version.outputs.version }}
-          body: |
-            DonutSMP Client version ${{ steps.mod_version.outputs.version }} for Minecraft Java 1.21.11.
-            Requires Fabric Loader and Fabric API. Mod Menu integration is optional.
-          files: build/libs/*.jar
-          fail_on_unmatched_files: true
-          make_latest: true
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '21'
+    - uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: '9.2.1'
+    - run: gradle --no-daemon build
+    - uses: actions/upload-artifact@v4
+      with:
+        name: SingleplayerPvPBot-1.21.11
+        path: build/libs/SingleplayerPvPBot-0.1.0.jar
+        if-no-files-found: error

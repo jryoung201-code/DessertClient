@@ -1,22 +1,19 @@
 {
   "schemaVersion": 1,
-  "id": "donutsmpclient",
+  "id": "singleplayerpvpbot",
   "version": "${version}",
-  "name": "Dessert Client",
-  "description": "A dessert-themed DonutSMP utility client for Minecraft 1.21.11.",
-  "authors": ["Dessert Client"],
-  "environment": "client",
+  "name": "Singleplayer PvP Bot",
+  "description": "Singleplayer combat practice with five types of duels",
+  "environment": "*",
   "entrypoints": {
-    "client": ["online.donutsmp.client.DonutSMPClient"],
-    "modmenu": ["online.donutsmp.client.DonutSMPModMenu"]
+    "main": [
+      "dev.realjr.pvpbot.SingleplayerPvpBot"
+    ]
   },
   "depends": {
     "fabricloader": ">=0.18.0",
-    "minecraft": "~1.21.11",
-    "java": ">=21",
-    "fabric-api": "*"
-  },
-  "suggests": {
-    "modmenu": "*"
+    "fabric-api": "*",
+    "minecraft": "1.21.11",
+    "java": ">=21"
   }
 }
